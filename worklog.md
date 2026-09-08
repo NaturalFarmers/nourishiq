@@ -80,3 +80,18 @@ Stage Summary:
 - Three new features shipped and verified end-to-end: body tracking charts, adherence streaks/weekly scoring, nutritionist report mode with shareable PDF.
 - Sample report PDF at /home/z/my-project/download/sample-progress-report.pdf.
 - App now covers the full loop: prescribe -> log -> score adherence -> trend body metrics -> report to a real nutritionist.
+
+---
+Task ID: 5
+Agent: Super Z (main agent)
+Task: Explain "Nutrition Passport ID" + "Your goals & plan live on this device only" to the user; confirm project state after session continuation.
+
+Work Log:
+- Explained to user: NP-B020DEE is the locally-generated profile ID binding goals/prescription/logs to their saved session (not an account); the privacy note means fully client-side storage (localStorage), no server upload, offline-capable, per-device only.
+- Read worklog: confirmed Tasks 3 & 4 already shipped (all 6 requested features implemented + browser-verified in prior sessions); file listing matches (LogView, NutritionistChat, ProgressView, ReportView, charts, pdf, progress.ts, /api/chat).
+- Health check: GET / -> 200; POST /api/chat with empty body -> 400 (zod validation active, as expected).
+- No code changes needed.
+
+Stage Summary:
+- All 6 requested features confirmed live: food log + macro rings, AI nutritionist chat, prescription PDF export, weight/waist trend charts, weekly adherence streaks, nutritionist report mode.
+- App running and healthy on port 3000; session closed with user-facing explanation delivered.
