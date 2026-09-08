@@ -1,0 +1,251 @@
+- button "NourishIQ home" [ref=e4]
+- button "Reminder settings" [ref=e5]
+- button "✕ Close" [ref=e6]
+- main
+  - generic
+    - button "Today 8/9" [ref=e16]
+      - StaticText "Today"
+      - StaticText "8/9"
+    - button "Yest. 7/9" [ref=e17]
+      - StaticText "Yest."
+      - StaticText "7/9"
+    - button "Sun 6/9" [ref=e18]
+      - StaticText "Sun"
+      - StaticText "6/9"
+    - button "Sat 5/9" [ref=e19]
+      - StaticText "Sat"
+      - StaticText "5/9"
+    - button "Fri 4/9" [ref=e20]
+      - StaticText "Fri"
+      - StaticText "4/9"
+    - button "Thu 3/9" [ref=e21]
+      - StaticText "Thu"
+      - StaticText "3/9"
+    - button "Wed 2/9" [ref=e22]
+      - StaticText "Wed"
+      - StaticText "2/9"
+  - button "Quick add or scan barcode to Snacks" [ref=e7]
+    - StaticText "Quick add to "
+    - StaticText "Snacks"
+    - StaticText "Scan a barcode, type a code, or tap a recent food"
+  - region "daily macro rings" [ref=e8]
+    - heading "TODAY'S RINGS" [level=2, ref=e23]
+    - button "Clear day" [ref=e24]
+    - generic
+      - StaticText "1951"
+      - StaticText "kcal left"
+    - generic
+      - StaticText "11"
+      - StaticText "g"
+      - StaticText "/ "
+      - StaticText "140"
+      - StaticText "g"
+      - StaticText " "
+      - StaticText "Protein"
+    - generic
+      - StaticText "1"
+      - StaticText "g"
+      - StaticText "/ "
+      - StaticText "203"
+      - StaticText "g"
+      - StaticText " "
+      - StaticText "Carbs"
+    - generic
+      - StaticText "13"
+      - StaticText "g"
+      - StaticText "/ "
+      - StaticText "82"
+      - StaticText "g"
+      - StaticText " "
+      - StaticText "Fat"
+    - generic
+      - StaticText "0"
+      - StaticText "g"
+      - StaticText "/ "
+      - StaticText "35"
+      - StaticText "g"
+      - StaticText " "
+      - StaticText "Fibre"
+  - region "water tracker" [ref=e9]
+    - heading "💧 Water" [level=2, ref=e25]
+    - paragraph
+      - StaticText "0.00 L of 2.5 L goal"
+    - button "Remove 250 ml water" [ref=e26]
+      - StaticText "−"
+    - button "Add 250 ml water" [ref=e27]
+      - StaticText "+ 250 ml"
+  - generic
+    - heading "Breakfast" [level=3, ref=e28]
+    - button "Add food to Breakfast" [ref=e29]
+      - StaticText "+ Add"
+    - paragraph
+      - StaticText "Nothing logged yet."
+  - generic
+    - heading "Lunch" [level=3, ref=e30]
+    - button "Add food to Lunch" [ref=e31]
+      - StaticText "+ Add"
+    - paragraph
+      - StaticText "Nothing logged yet."
+  - generic
+    - heading "Snacks159 kcal" [level=3, ref=e32]
+      - StaticText "Snacks159 kcal"
+    - button "Add food to Snacks" [ref=e33]
+      - StaticText "+ Add"
+    - list
+      - listitem [level=1]
+        - paragraph
+        - paragraph
+        - StaticText "159"
+        - button "Remove Paneer (fresh) from Snacks" [ref=e40]
+  - generic
+    - heading "Dinner" [level=3, ref=e34]
+    - button "Add food to Dinner" [ref=e35]
+      - StaticText "+ Add"
+    - paragraph
+      - StaticText "Nothing logged yet."
+  - dialog "Add food to diary"
+    - button "Close food picker" [ref=e36]
+    - generic
+      - heading "Add food" [level=3, ref=e37]
+      - button "✕ Close" [ref=e38]
+      - form
+        - textbox "Scan or type barcode" [ref=e44]
+        - button "Scan barcode with camera" [ref=e41]
+      - paragraph
+        - StaticText "⚡ QUICK ADD — OFTEN LOGGED"
+      - button "Quick add Paneer (fresh)" [ref=e39]
+        - StaticText "Paneer (fresh)"
+        - StaticText "265"
+        - StaticText " kcal/100g"
+      - textbox "Search foods" [ref=e42]
+      - list
+        - listitem [level=1]
+          - button "Moong dal (cooked) 105 kcal · P 7.1g · per 100 g 95" [ref=e45]
+        - listitem [level=1]
+          - button "Lobia (black-eyed peas, cooked) 116 kcal · P 7.7g · per 100 g 95" [ref=e46]
+        - listitem [level=1]
+          - button "Tofu (firm) 76 kcal · P 8g · per 100 g 93" [ref=e47]
+        - listitem [level=1]
+          - button "Greek yogurt (plain) 59 kcal · P 10.2g · per 100 g 93" [ref=e48]
+        - listitem [level=1]
+          - button "Okra (bhindi) 33 kcal · P 1.9g · per 100 g 91" [ref=e49]
+        - listitem [level=1]
+          - button "Green peas 81 kcal · P 5.4g · per 100 g 90" [ref=e50]
+        - listitem [level=1]
+          - button "Toor dal (cooked) 118 kcal · P 6.5g · per 100 g 89" [ref=e51]
+        - listitem [level=1]
+          - button "Soy chunks 345 kcal · P 52g · per 100 g 89" [ref=e52]
+        - listitem [level=1]
+          - button "Rajma (kidney beans, cooked) 127 kcal · P 8.7g · per 100 g 87" [ref=e53]
+        - listitem [level=1]
+          - button "Methi (fenugreek leaves) 49 kcal · P 4.4g · per 100 g 85" [ref=e54]
+        - listitem [level=1]
+          - button "Guava 68 kcal · P 2.6g · per 100 g 85" [ref=e55]
+        - listitem [level=1]
+          - button "Kala chana (black chickpea, cooked) 150 kcal · P 8.9g · per 100 g 81" [ref=e56]
+        - listitem [level=1]
+          - button "Egg white 52 kcal · P 11g · per 100 g 81" [ref=e57]
+        - listitem [level=1]
+          - button "Prawns 99 kcal · P 24g · per 100 g 81" [ref=e58]
+        - listitem [level=1]
+          - button "Chickpeas (kabuli, cooked) 164 kcal · P 8.9g · per 100 g 75" [ref=e59]
+        - listitem [level=1]
+          - button "Moong sprouts 30 kcal · P 3g · per 100 g 75" [ref=e60]
+        - listitem [level=1]
+          - button "Spinach (palak) 23 kcal · P 2.9g · per 100 g 75" [ref=e61]
+        - listitem [level=1]
+          - button "Broccoli 34 kcal · P 2.8g · per 100 g 75" [ref=e62]
+        - listitem [level=1]
+          - button "Cauliflower 25 kcal · P 1.9g · per 100 g 75" [ref=e63]
+        - listitem [level=1]
+          - button "Carrot 41 kcal · P 0.9g · per 100 g 75" [ref=e64]
+        - listitem [level=1]
+          - button "Tomato 18 kcal · P 0.9g · per 100 g 75" [ref=e65]
+        - listitem [level=1]
+          - button "Bell pepper (capsicum) 26 kcal · P 1g · per 100 g 75" [ref=e66]
+        - listitem [level=1]
+          - button "Bitter gourd (karela) 17 kcal · P 1g · per 100 g 75" [ref=e67]
+        - listitem [level=1]
+          - button "Cabbage (patta gobi) 25 kcal · P 1.3g · per 100 g 75" [ref=e68]
+        - listitem [level=1]
+          - button "Mushrooms 22 kcal · P 3.1g · per 100 g 75" [ref=e69]
+        - listitem [level=1]
+          - button "French beans 31 kcal · P 1.8g · per 100 g 75" [ref=e70]
+        - listitem [level=1]
+          - button "Jamun (java plum) 62 kcal · P 0.7g · per 100 g 75" [ref=e71]
+        - listitem [level=1]
+          - button "Curd / dahi 60 kcal · P 3.5g · per 100 g 75" [ref=e72]
+        - listitem [level=1]
+          - button "Toned milk 58 kcal · P 3.1g · per 100 g 75" [ref=e73]
+        - listitem [level=1]
+          - button "Soy milk (unsweetened) 38 kcal · P 3.3g · per 100 g 75" [ref=e74]
+        - listitem [level=1]
+          - button "Pomegranate 83 kcal · P 1.7g · per 100 g 74" [ref=e75]
+        - listitem [level=1]
+          - button "Chicken breast (skinless, cooked) 165 kcal · P 31g · per 100 g 73" [ref=e76]
+        - listitem [level=1]
+          - button "Chicken thigh (skinless) 177 kcal · P 23g · per 100 g 73" [ref=e77]
+        - listitem [level=1]
+          - button "Bangda (Indian mackerel) 161 kcal · P 19g · per 100 g 73" [ref=e78]
+        - listitem [level=1]
+          - button "Sardines (pedvey) 208 kcal · P 25g · per 100 g 73" [ref=e79]
+        - listitem [level=1]
+          - button "Mutton (lean cuts, cooked) 143 kcal · P 27g · per 100 g 73" [ref=e80]
+        - listitem [level=1]
+          - button "Avocado 160 kcal · P 2g · per 100 g 71" [ref=e81]
+        - listitem [level=1]
+          - button "Quinoa (cooked) 120 kcal · P 4.4g · per 100 g 70" [ref=e82]
+        - listitem [level=1]
+          - button "Steel-cut oats (cooked) 71 kcal · P 2.5g · per 100 g 70" [ref=e83]
+        - listitem [level=1]
+          - button "Foxtail millet (cooked) 118 kcal · P 3.5g · per 100 g 70" [ref=e84]
+        - listitem [level=1]
+          - button "Whole-wheat pasta (cooked) 124 kcal · P 5.3g · per 100 g 70" [ref=e85]
+        - listitem [level=1]
+          - button "Besan (chickpea flour) 387 kcal · P 22g · per 100 g 70" [ref=e86]
+        - listitem [level=1]
+          - button "Apple 52 kcal · P 0.3g · per 100 g 70" [ref=e87]
+        - listitem [level=1]
+          - button "Banana (ripe) 89 kcal · P 1.1g · per 100 g 70" [ref=e88]
+        - listitem [level=1]
+          - button "Strawberries 32 kcal · P 0.7g · per 100 g 70" [ref=e89]
+        - listitem [level=1]
+          - button "Tuna (canned in water) 116 kcal · P 26g · per 100 g 69" [ref=e90]
+        - listitem [level=1]
+          - button "Chia seeds 486 kcal · P 16.5g · per 100 g 69" [ref=e91]
+        - listitem [level=1]
+          - button "Flaxseeds (alsi) 534 kcal · P 18.3g · per 100 g 69" [ref=e92]
+        - listitem [level=1]
+          - button "Cucumber 15 kcal · P 0.7g · per 100 g 67" [ref=e93]
+        - listitem [level=1]
+          - button "Almond milk (unsweetened) 15 kcal · P 0.6g · per 100 g 67" [ref=e94]
+        - listitem [level=1]
+          - button "Buttermilk (chaas) 40 kcal · P 1.9g · per 100 g 67" [ref=e95]
+        - listitem [level=1]
+          - button "Coconut water (nariyal pani) 19 kcal · P 0.7g · per 100 g 67" [ref=e96]
+        - listitem [level=1]
+          - button "Orange 47 kcal · P 0.9g · per 100 g 65" [ref=e97]
+        - listitem [level=1]
+          - button "Mango 60 kcal · P 0.8g · per 100 g 65" [ref=e98]
+        - listitem [level=1]
+          - button "Blueberries 57 kcal · P 0.7g · per 100 g 65" [ref=e99]
+        - listitem [level=1]
+          - button "Paneer (fresh) 265 kcal · P 18.3g · per 100 g 65" [ref=e100]
+        - listitem [level=1]
+          - button "Whole egg (boiled) 155 kcal · P 13g · per 100 g 65" [ref=e101]
+        - listitem [level=1]
+          - button "Salmon (cooked) 208 kcal · P 20g · per 100 g 65" [ref=e102]
+        - listitem [level=1]
+          - button "Bajra (pearl millet) flour 361 kcal · P 11.6g · per 100 g 64" [ref=e103]
+        - listitem [level=1]
+          - button "Almonds (badam) 579 kcal · P 21.2g · per 100 g 63" [ref=e104]
+- button "Ask your AI nutritionist" [ref=e1]
+- navigation "Primary" [ref=e2]
+  - button "Home" [ref=e10]
+  - button "Plan" [ref=e11]
+  - button "Diary" [ref=e12]
+  - button "Progress" [ref=e13]
+  - button "Foods" [ref=e14]
+  - button "Recipes" [ref=e15]
+- region "Notifications (F8)" [ref=e3]
+- button "Open Next.js Dev Tools" [expanded=false, ref=e43]

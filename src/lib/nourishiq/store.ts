@@ -8,6 +8,7 @@ import type {
   LogEntry,
   ChatMessage,
   Measurement,
+  ReminderSettings,
 } from "./types";
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -22,6 +23,20 @@ export const DEFAULT_PROFILE: UserProfile = {
   activity: "light",
 };
 
+export const DEFAULT_REMINDERS: ReminderSettings = {
+  enabled: false,
+  breakfast: "08:30",
+  lunch: "13:00",
+  snack: "16:30",
+  dinner: "20:00",
+  water: true,
+  waterEveryMin: 120,
+  weighIn: true,
+  weighInTime: "07:30",
+  dayReview: true,
+  dayReviewTime: "21:30",
+};
+
 interface NourishState {
   passportId: string;
   profile: UserProfile;
@@ -32,6 +47,10 @@ interface NourishState {
   measurements: Record<string, Measurement>;
   /** AI nutritionist conversation (last 40 messages kept) */
   chat: ChatMessage[];
+  /** reminder schedule + notification preferences */
+  reminders: ReminderSettings;
+  /** de-duplication keys for reminders already shown, e.g. "2026-09-09:breakfast" */
+  firedKeys: string[];
   setPassport: (id: string) => void;
   setProfile: (p: Partial<UserProfile>) => void;
   setSeenWelcome: () => void;
@@ -43,6 +62,8 @@ interface NourishState {
   setMeasurement: (date: string, patch: { weightKg?: number; waistCm?: number }) => void;
   pushChat: (m: ChatMessage) => void;
   clearChat: () => void;
+  setReminders: (patch: Partial<ReminderSettings>) => void;
+  markFired: (key: string) => void;
   reset: () => void;
 }
 
@@ -64,6 +85,8 @@ export const useNourish = create<NourishState>()(
       logs: {},
       measurements: {},
       chat: [],
+      reminders: DEFAULT_REMINDERS,
+      firedKeys: [],
       setPassport: (id) => set({ passportId: id }),
       setProfile: (p) =>
         set((s) => ({ profile: { ...s.profile, ...p }, seenWelcome: true })),
@@ -103,8 +126,22 @@ export const useNourish = create<NourishState>()(
       pushChat: (m) =>
         set((s) => ({ chat: [...s.chat, m].slice(-40) })),
       clearChat: () => set({ chat: [] }),
+      setReminders: (patch) =>
+        set((s) => ({ reminders: { ...s.reminders, ...patch } })),
+      markFired: (key) =>
+        set((s) =>
+          s.firedKeys.includes(key) ? s : { firedKeys: [...s.firedKeys, key].slice(-80) },
+        ),
       reset: () =>
-        set({ profile: DEFAULT_PROFILE, seenWelcome: false, logs: {}, measurements: {}, chat: [] }),
+        set({
+          profile: DEFAULT_PROFILE,
+          seenWelcome: false,
+          logs: {},
+          measurements: {},
+          chat: [],
+          reminders: DEFAULT_REMINDERS,
+          firedKeys: [],
+        }),
     }),
     {
       name: "nourishiq-passport",

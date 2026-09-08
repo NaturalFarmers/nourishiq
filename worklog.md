@@ -112,3 +112,21 @@ Work Log:
 Stage Summary:
 - Full journey (log -> AI review -> report export) verified live in one continuous session; all numbers consistent across diary, rings, AI context, and PDF.
 - Demo artifacts at /home/z/my-project/demo/. No code changes needed.
+
+---
+Task ID: 7
+Agent: Super Z (main agent)
+Task: Add (a) barcode-style quick-add, (b) reminders, (c) more Indian recipes.
+
+Work Log:
+- barcode.ts (new): deterministic EAN-13-shaped "NourishIQ codes" per food (890 prefix + FNV-hash body + valid check digit); foodByBarcode lookup (13 or 12 digits). Verified via bun script: 101/101 foods unique, all check digits valid (scripts/print-barcodes.ts). Paneer = 8903765887577.
+- FoodPicker: barcode row (type/auto-resolve at 13 digits) + camera scan button (BarcodeDetector API + getUserMedia, viewfinder overlay, graceful fallback message when unsupported) + "often logged" quick-add chips (top 6 by frequency across all logs) + food's code shown on portion screen. Fixed pre-existing bug: slotSel now re-syncs with `slot` prop on every open (quick-add to Snacks previously showed Breakfast).
+- LogView: full-width "Quick add to <slot>" hero button with smart slot by hour (<11 breakfast, <16 lunch, <19 snack, else dinner).
+- Reminders: ReminderSettings type + store (reminders, firedKeys with 80-key pruning, setReminders/markFirmed->markFired, reset). useReminders hook polls 20s (+ on visibilitychange): meal reminders (skipped if slot already logged), water nudges (8am-10pm per interval block, skipped if ~goal met), weigh-in (skipped if today's weight logged), day review; fires once/day via firedKeys dedup; Notification API + always-on in-app callback. RemindersSheet (bell button in app bar + green dot when enabled): master switch, 4 meal time inputs, water toggle + interval chips (45-180 min), weigh-in/day-review toggles + times, notification permission row; sub-controls disabled while master off. page.tsx: fixed-top banner (title/body/Log-now->Diary/dismiss, 10s auto-dismiss).
+- recipes.ts: 16 -> 42 recipes (+26 authentic Indian: poha, millet upma, oats idli, besan chilla paneer, ragi porridge, methi thepla, egg/paneer bhurji, daliya, moong khichdi, chole+brown rice, palak dal+jowar, lauki chana dal, baingan bharta, tandoori chicken, chicken curry, pepper chicken, prawn masala, egg curry, soya keema, sundal, masala chaas, makhana, fruit chaat, egg chaat, brown curd rice). Accurate gluten flags (thepla/daliya/soya-keema-phulka = contains gluten), diet/goal/slot variety, existing hue palette only.
+- Lint fixes: fireRef synced in useEffect (no ref write during render), RemindersSheet permission read via setTimeout (no sync setState-in-effect), removed stale eslint-disable.
+- Verification (agent-browser): lint clean; barcode 8903765887577 auto-opens paneer portion view with synced "Log 60 g to Snacks"; chip -> portion -> log 100 g -> Snacks 424 kcal + ring 1,686 left (exact); camera viewfinder opens in headless (BarcodeDetector present), stop works; chips row appears after first log; recipes = 42 sorted by fit (tandoori P38 first for visceral-fat rx), Sundal detail dialog renders ingredients/method/GI/GF; reminders: enabled via sheet, 7 firedKeys accumulated exactly per schedule (breakfast 16:32, lunch, water block 8, weigh-in, dinner, day-review, snack), dedup prevents re-fire, skip rules honored (snack skipped while logged); banner captured visually on mobile (title/body/Log now/dismiss) + desktop 1280x800 diary clean; zero console errors.
+
+Stage Summary:
+- Three features shipped: barcode quick-add (type + camera + chips), full reminder system (meals/water/weigh-in/review with in-app banner + browser notifications), recipe library grown to 42.
+- All verified end-to-end on 390x844 + 1280x800; screenshots + recipe/barcode dumps in /home/z/my-project/demo/.

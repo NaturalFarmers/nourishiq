@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { useNourish } from "@/lib/nourishiq/store";
+import { useNourish, dateKey } from "@/lib/nourishiq/store";
 import { computePrescription, fitLabel, fitScore } from "@/lib/nourishiq/engine";
 import { FOODS } from "@/lib/nourishiq/foods";
+import { barcodeOf, foodByBarcode } from "@/lib/nourishiq/barcode";
 import type { Food, LogEntry, MealSlot } from "@/lib/nourishiq/types";
 
 const SLOTS: { id: MealSlot; label: string }[] = [
@@ -38,12 +39,113 @@ interface FoodPickerProps {
 
 export default function FoodPicker({ open, slot, onClose, onAdd }: FoodPickerProps) {
   const profile = useNourish((s) => s.profile);
+  const logs = useNourish((s) => s.logs);
   const rx = computePrescription(profile);
 
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Food | null>(null);
   const [grams, setGrams] = useState(100);
   const [slotSel, setSlotSel] = useState<MealSlot>(slot);
+  const [code, setCode] = useState("");
+  const [codeMsg, setCodeMsg] = useState<string | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<number | null>(null);
+
+  // Frequently logged foods (by name count across all days)
+  const frequent = useMemo(() => {
+    const counts = new Map<string, number>();
+    const lastTs = new Map<string, number>();
+    for (const day of Object.values(logs)) {
+      for (const m of day.meals) {
+        counts.set(m.name, (counts.get(m.name) ?? 0) + 1);
+        lastTs.set(m.name, Math.max(lastTs.get(m.name) ?? 0, day.date === dateKey() ? Date.now() : 0));
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => (b[1] - a[1]) || ((lastTs.get(b[0]) ?? 0) - (lastTs.get(a[0]) ?? 0)))
+      .slice(0, 6)
+      .map(([name]) => FOODS.find((f) => f.name === name))
+      .filter((f): f is Food => Boolean(f));
+  }, [logs]);
+
+  const stopScan = () => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setScanOpen(false);
+  };
+
+  // stop camera whenever the sheet closes or unmounts
+  useEffect(() => {
+    if (!open) stopScan();
+    return () => stopScan();
+  }, [open]);
+
+  // re-target the meal slot each time the sheet opens (quick-add may pick a different slot)
+  useEffect(() => {
+    if (open) setSlotSel(slot);
+  }, [open, slot]);
+
+  const handleCode = (raw: string) => {
+    const food = foodByBarcode(raw);
+    if (food) {
+      setSelected(food);
+      setGrams(servingGrams(food));
+      setCode("");
+      setCodeMsg(null);
+      setScanMsg(null);
+    } else {
+      const digits = raw.replace(/\D/g, "");
+      setCodeMsg(
+        digits.length >= 8
+          ? `Code ${digits} isn't in the NourishIQ library yet — search the name instead.`
+          : "Enter the full 13-digit code (printed under every library food).",
+      );
+    }
+  };
+
+  const startScan = async () => {
+    setScanOpen(true);
+    setScanMsg(null);
+    try {
+      const w = window as unknown as { BarcodeDetector?: new (o?: { formats?: string[] }) => { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> } };
+      if (!w.BarcodeDetector) {
+        setScanMsg("Camera scanning needs Chrome or Edge on this device. Type the 13-digit code instead — it's printed under every library food.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      const detector = new w.BarcodeDetector({ formats: ["ean_13", "ean_8", "code_128", "upc_a"] });
+      const tick = async () => {
+        if (!streamRef.current || !videoRef.current) return;
+        try {
+          const found = await detector.detect(videoRef.current);
+          if (found.length > 0) {
+            handleCode(found[0].rawValue);
+            stopScan();
+            return;
+          }
+        } catch {
+          /* frame not ready — try again */
+        }
+        timerRef.current = window.setTimeout(tick, 350);
+      };
+      tick();
+    } catch {
+      setScanMsg("Couldn't access the camera — type the 13-digit code instead.");
+    }
+  };
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -100,6 +202,8 @@ export default function FoodPicker({ open, slot, onClose, onAdd }: FoodPickerPro
     setSelected(null);
     setQuery("");
     setGrams(100);
+    setCode("");
+    setCodeMsg(null);
     onClose();
   };
 
@@ -134,6 +238,88 @@ export default function FoodPicker({ open, slot, onClose, onAdd }: FoodPickerPro
 
         {!selected ? (
           <>
+            {/* Barcode-style quick add */}
+            <div className="px-5 pt-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleCode(code);
+                }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[15px]" aria-hidden>🏷️</span>
+                  <input
+                    value={code}
+                    onChange={(e) => {
+                      setCode(e.target.value);
+                      const digits = e.target.value.replace(/\D/g, "");
+                      if (digits.length === 13) handleCode(digits);
+                    }}
+                    inputMode="numeric"
+                    placeholder="Scan or type barcode…"
+                    aria-label="Scan or type barcode"
+                    className="w-full rounded-2xl border border-stone-200 bg-white pl-9 pr-3 py-3 text-[13.5px] font-semibold tracking-wider outline-none focus:ring-2 focus:ring-[#0B5C46]/30"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={startScan}
+                  className="shrink-0 grid w-12 place-items-center rounded-2xl bg-[#0B5C46] text-lg text-white active:scale-95 transition-transform"
+                  aria-label="Scan barcode with camera"
+                  title="Scan with camera"
+                >
+                  📷
+                </button>
+              </form>
+              {codeMsg && (
+                <p className="mt-1.5 text-[11.5px] font-semibold text-red-500" role="status">{codeMsg}</p>
+              )}
+              {scanOpen && (
+                <div className="mt-2 rounded-2xl border border-stone-200 bg-black overflow-hidden">
+                  <div className="relative">
+                    <video ref={videoRef} muted playsInline className="w-full h-36 object-cover" aria-label="Camera viewfinder" />
+                    <div className="absolute inset-6 border-2 border-white/70 rounded-xl pointer-events-none" aria-hidden />
+                  </div>
+                  <button
+                    onClick={stopScan}
+                    className="w-full bg-stone-900 text-white text-[12px] font-bold py-2"
+                    aria-label="Stop camera scanning"
+                  >
+                    ⏹ Stop camera
+                  </button>
+                </div>
+              )}
+              {scanMsg && (
+                <p className="mt-1.5 text-[11.5px] font-semibold text-stone-500" role="status">{scanMsg}</p>
+              )}
+              {/* Frequently logged quick-add chips */}
+              {frequent.length > 0 && (
+                <div className="mt-2.5">
+                  <p className="text-[10.5px] font-extrabold uppercase tracking-wide text-stone-400 mb-1.5">
+                    ⚡ Quick add — often logged
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-stone-300">
+                    {frequent.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => {
+                          setSelected(f);
+                          setGrams(servingGrams(f));
+                        }}
+                        className="shrink-0 flex items-center gap-1.5 rounded-full bg-white border border-stone-200 pl-2.5 pr-3 py-1.5 text-[12px] font-bold text-stone-700 hover:border-[#0B5C46]/40 active:scale-95 transition-all"
+                        aria-label={`Quick add ${f.name}`}
+                      >
+                        <span aria-hidden>{f.emoji}</span>
+                        {f.name.split(" ").slice(0, 2).join(" ")}
+                        <span className="text-[10px] font-semibold text-stone-400">{f.kcal} kcal/100g</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Search */}
             <div className="px-5 pt-3">
               <input
@@ -201,6 +387,9 @@ export default function FoodPicker({ open, slot, onClose, onAdd }: FoodPickerPro
                 <div>
                   <p className="text-[15px] font-extrabold text-stone-900">{selected.name}</p>
                   <p className="text-[11.5px] text-stone-500">Usual serving: {selected.serving}</p>
+                  <p className="text-[10px] font-mono tracking-widest text-stone-400 mt-0.5">
+                    Code {barcodeOf(selected.id)}
+                  </p>
                 </div>
               </div>
 

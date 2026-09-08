@@ -126,6 +126,11 @@ export default function LogView({ go }: { go: (v: ViewId) => void }) {
   const glasses = Math.round(waterTarget / 250);
   const filled = Math.min(glasses, Math.round((day?.waterMl ?? 0) / 250));
 
+  // smart meal slot for the one-tap quick-add button (by current hour)
+  const nowHour = new Date().getHours();
+  const quickSlot: MealSlot = nowHour < 11 ? "breakfast" : nowHour < 16 ? "lunch" : nowHour < 19 ? "snack" : "dinner";
+  const quickLabel = SLOTS.find((s) => s.id === quickSlot)?.label ?? "Diary";
+
   const macroRings = rx
     ? [
         { label: "Protein", value: totals.protein, target: rx.proteinG, unit: "g", color: "#0E6B4E" },
@@ -171,6 +176,20 @@ export default function LogView({ go }: { go: (v: ViewId) => void }) {
           </button>
         ))}
       </div>
+
+      {/* Quick add / barcode scan */}
+      <button
+        onClick={() => setPickerSlot(quickSlot)}
+        className="w-full rounded-2xl bg-[#0B5C46] px-4 py-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+        aria-label={`Quick add or scan barcode to ${quickLabel}`}
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/15 text-xl" aria-hidden>⚡</span>
+        <span className="flex-1">
+          <span className="block text-[13.5px] font-extrabold">Quick add to {quickLabel}</span>
+          <span className="block text-[11px] text-white/70">Scan a barcode, type a code, or tap a recent food</span>
+        </span>
+        <span className="text-[18px] text-white/80" aria-hidden>›</span>
+      </button>
 
       {/* Streak chip */}
       {streak >= 2 && (

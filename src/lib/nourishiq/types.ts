@@ -202,6 +202,27 @@ export interface Measurement {
   waistCm?: number;
 }
 
+// ─── Reminders ──────────────────────────────────────────────────────────────
+
+/** Client-side reminder schedule (times are local HH:MM, 24 h). */
+export interface ReminderSettings {
+  /** master switch — no reminder fires while false */
+  enabled: boolean;
+  breakfast: string;
+  lunch: string;
+  snack: string;
+  dinner: string;
+  /** periodic water nudge during waking hours */
+  water: boolean;
+  waterEveryMin: number;
+  /** evening weigh-in / waist check nudge */
+  weighIn: boolean;
+  weighInTime: string;
+  /** end-of-day review nudge */
+  dayReview: boolean;
+  dayReviewTime: string;
+}
+
 // ─── AI chat ────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {
