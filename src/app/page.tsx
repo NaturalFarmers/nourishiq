@@ -9,11 +9,14 @@ import FoodsView from "@/components/nourishiq/FoodsView";
 import RecipesView from "@/components/nourishiq/RecipesView";
 import ActivityView from "@/components/nourishiq/ActivityView";
 import GuidelinesView from "@/components/nourishiq/GuidelinesView";
+import LogView from "@/components/nourishiq/LogView";
+import NutritionistChat from "@/components/nourishiq/NutritionistChat";
 import { useHydrated } from "@/components/nourishiq/primitives";
 
 const NAV: { id: ViewId; label: string; emoji: string }[] = [
   { id: "home", label: "Home", emoji: "🏠" },
   { id: "plan", label: "Plan", emoji: "📋" },
+  { id: "log", label: "Diary", emoji: "📔" },
   { id: "foods", label: "Foods", emoji: "🥗" },
   { id: "recipes", label: "Recipes", emoji: "👨‍🍳" },
   { id: "guides", label: "Guides", emoji: "📖" },
@@ -27,6 +30,8 @@ const TITLES: Record<ViewId, string> = {
   recipes: "Recipes",
   activity: "Energy Burn",
   guides: "Guidelines",
+  log: "Food Diary",
+  chat: "Ask Your Nutritionist",
 };
 
 export default function Page() {
@@ -88,34 +93,55 @@ export default function Page() {
                 {view === "recipes" && <RecipesView />}
                 {view === "activity" && <ActivityView />}
                 {view === "guides" && <GuidelinesView />}
+                {view === "log" && <LogView go={go} />}
+                {view === "chat" && <NutritionistChat />}
               </motion.div>
             </AnimatePresence>
           )}
         </div>
       </main>
 
-      {/* Bottom nav */}
-      <nav
-        className="sticky bottom-0 z-40 mt-auto bg-white/95 backdrop-blur border-t border-stone-200/80 pb-[env(safe-area-inset-bottom)]"
-        aria-label="Primary"
-      >
-        <div className="mx-auto max-w-2xl grid grid-cols-5">
-          {NAV.map((n) => {
-            const active = view === n.id || (view === "assessment" && n.id === "plan") || (view === "activity" && n.id === "plan");
-            return (
-              <button
-                key={n.id}
-                onClick={() => go(n.id)}
-                className={`flex flex-col items-center gap-0.5 py-2.5 text-[10.5px] font-bold transition-colors ${active ? "text-[#0B5C46]" : "text-stone-400 hover:text-stone-600"}`}
-                aria-current={active ? "page" : undefined}
-              >
-                <span className={`text-[19px] transition-transform ${active ? "scale-110" : ""}`} aria-hidden>{n.emoji}</span>
-                {n.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      {/* Floating AI-nutritionist button */}
+      {hydrated && view !== "chat" && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          onClick={() => go("chat")}
+          className="fixed right-4 bottom-[calc(4.6rem+env(safe-area-inset-bottom))] z-40 grid h-14 w-14 place-items-center rounded-full bg-[#BE185D] text-[22px] shadow-lg shadow-pink-900/20 hover:scale-105 active:scale-95 transition-transform"
+          aria-label="Ask your AI nutritionist"
+          title="Ask your nutritionist"
+        >
+          💬
+        </motion.button>
+      )}
+
+      {/* Bottom nav (hidden in focused chat view) */}
+      {view !== "chat" && (
+        <nav
+          className="sticky bottom-0 z-40 mt-auto bg-white/95 backdrop-blur border-t border-stone-200/80 pb-[env(safe-area-inset-bottom)]"
+          aria-label="Primary"
+        >
+          <div className="mx-auto max-w-2xl grid grid-cols-6">
+            {NAV.map((n) => {
+              const active =
+                view === n.id ||
+                (view === "assessment" && n.id === "plan") ||
+                (view === "activity" && n.id === "plan");
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => go(n.id)}
+                  className={`flex flex-col items-center gap-0.5 py-2.5 text-[9.5px] font-bold transition-colors ${active ? "text-[#0B5C46]" : "text-stone-400 hover:text-stone-600"}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <span className={`text-[18px] transition-transform ${active ? "scale-110" : ""}`} aria-hidden>{n.emoji}</span>
+                  {n.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

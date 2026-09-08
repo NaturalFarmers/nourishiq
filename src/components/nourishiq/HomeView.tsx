@@ -5,7 +5,7 @@ import { useNourish, DEFAULT_PROFILE } from "@/lib/nourishiq/store";
 import { GOALS, computePrescription } from "@/lib/nourishiq/engine";
 import { useHydrated } from "./primitives";
 
-export type ViewId = "home" | "assessment" | "plan" | "foods" | "recipes" | "activity" | "guides";
+export type ViewId = "home" | "assessment" | "plan" | "foods" | "recipes" | "activity" | "guides" | "log" | "chat";
 
 interface HomeViewProps {
   go: (v: ViewId) => void;
@@ -21,8 +21,10 @@ const CARDS: {
   ring: string;
 }[] = [
   { view: "plan", title: "My Plan", sub: "Your prescription", emoji: "📋", tint: "bg-[#E4F6EE]", ink: "text-[#0E6B4E]", ring: "ring-[#0E6B4E]/15" },
+  { view: "log", title: "Food Diary", sub: "Rings & meal log", emoji: "📔", tint: "bg-[#E0F2EF]", ink: "text-[#0F766E]", ring: "ring-[#0F766E]/15" },
   { view: "foods", title: "Foods", sub: "Fit-scored database", emoji: "🥗", tint: "bg-[#F3EAF8]", ink: "text-[#7C3AED]", ring: "ring-[#7C3AED]/15" },
   { view: "recipes", title: "Recipes", sub: "Goal-aligned meals", emoji: "👨‍🍳", tint: "bg-[#EAF4E2]", ink: "text-[#4D8B31]", ring: "ring-[#4D8B31]/15" },
+  { view: "chat", title: "Ask Nutritionist", sub: "AI chat · 24×7", emoji: "💬", tint: "bg-[#FCE9F1]", ink: "text-[#BE185D]", ring: "ring-[#BE185D]/15" },
   { view: "activity", title: "Activity", sub: "Energy burn", emoji: "🏃", tint: "bg-[#FCEFD9]", ink: "text-[#D96C0B]", ring: "ring-[#D96C0B]/15" },
   { view: "guides", title: "Guidelines", sub: "Evidence-based", emoji: "📖", tint: "bg-[#FBF3E2]", ink: "text-[#A97715]", ring: "ring-[#A97715]/15" },
   { view: "assessment", title: "My Goals", sub: "Update & retake", emoji: "🎯", tint: "bg-[#EFEFED]", ink: "text-[#4A342A]", ring: "ring-stone-900/10" },

@@ -1,0 +1,141 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import ZAI from "z-ai-web-dev-sdk";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const msgSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(4000),
+});
+
+const bodySchema = z.object({
+  messages: z.array(msgSchema).min(1).max(24),
+  context: z.object({
+    rx: z
+      .object({
+        goalLabel: z.string(),
+        goalTagline: z.string(),
+        kcal: z.number(),
+        proteinG: z.number(),
+        carbsG: z.number(),
+        fatG: z.number(),
+        fiberG: z.number(),
+        waterMl: z.number(),
+        sugarCapG: z.number(),
+        sodiumCapMg: z.number(),
+        bmi: z.number(),
+        bmiCategory: z.string(),
+        proteinPerKg: z.number(),
+        rules: z.array(z.string()),
+      })
+      .nullable(),
+    profile: z.object({
+      sex: z.string(),
+      age: z.number(),
+      heightCm: z.number(),
+      weightKg: z.number(),
+      activity: z.string(),
+      pattern: z.string().nullable(),
+      exclusions: z.array(z.string()),
+      boosters: z.array(z.string()),
+    }),
+    today: z.object({
+      kcal: z.number(),
+      protein: z.number(),
+      carbs: z.number(),
+      fat: z.number(),
+      fiber: z.number(),
+      waterMl: z.number(),
+      entries: z.number(),
+    }),
+  }),
+});
+
+type Ctx = z.infer<typeof bodySchema>["context"];
+
+function buildSystemPrompt(ctx: Ctx): string {
+  const { rx, profile, today } = ctx;
+  const lines: string[] = [
+    "You are the NourishIQ AI nutritionist — a warm, evidence-based clinical nutritionist inside a personalised nutrition app.",
+    "You give practical, culturally-aware guidance (Indian-forward food examples: dals, millets, paneer, curd, sprouts — plus global staples).",
+    "",
+    "── CLIENT PROFILE ──",
+    `- Sex: ${profile.sex} · Age: ${profile.age} · Height: ${profile.heightCm} cm · Weight: ${profile.weightKg} kg`,
+    `- Activity: ${profile.activity}`,
+    `- Diet pattern: ${profile.pattern ?? "not set"}`,
+    `- Exclusions: ${profile.exclusions.length ? profile.exclusions.join(", ") : "none"}`,
+    `- Focus boosters: ${profile.boosters.length ? profile.boosters.join(", ") : "none"}`,
+  ];
+
+  if (rx) {
+    lines.push(
+      "",
+      "── TODAY'S PRESCRIPTION (from their nutritionist) ──",
+      `- Goal: ${rx.goalLabel} — ${rx.goalTagline}`,
+      `- Energy: ${rx.kcal} kcal/day (BMI ${rx.bmi}, ${rx.bmiCategory})`,
+      `- Protein ${rx.proteinG} g (${rx.proteinPerKg} g/kg) · Carbs ${rx.carbsG} g · Fat ${rx.fatG} g`,
+      `- Fibre ${rx.fiberG} g · Water ${(rx.waterMl / 1000).toFixed(1)} L · Added sugar cap ${rx.sugarCapG} g · Sodium cap ${rx.sodiumCapMg} mg`,
+      `- Nutritionist's rules: ${rx.rules.join(" | ")}`,
+    );
+  } else {
+    lines.push("", "The user has NOT completed their intake assessment yet — give general evidence-based guidance and gently suggest taking the 2-minute assessment in the app to unlock personalised numbers.");
+  }
+
+  lines.push(
+    "",
+    "── WHAT THEY ATE TODAY ──",
+    `- ${today.entries} item(s) logged: ${Math.round(today.kcal)} kcal, protein ${Math.round(today.protein)} g, carbs ${Math.round(today.carbs)} g, fat ${Math.round(today.fat)} g, fibre ${Math.round(today.fiber)} g, water ${(today.waterMl / 1000).toFixed(2)} L.`,
+    rx
+      ? "When helpful, compare this against the prescription and suggest ONE or TWO concrete adjustments for the rest of the day."
+      : "No prescription to compare against.",
+    "",
+    "── HOW TO ANSWER ──",
+    "- Be concise: 60–150 words unless a list or plan is genuinely needed. Use short markdown bullets or bold for key numbers.",
+    "- Always respect exclusions strictly (e.g. never suggest gluten items to a gluten-free client).",
+    "- Prefer food-first advice; mention supplements only when clearly useful and flag 'ask your doctor'.",
+    "- If asked about medical conditions, drug interactions, pregnancy or eating disorders: give safe general info, then clearly advise consulting their doctor/dietitian.",
+    "- Never invent client data you were not given. Use the numbers above, not generic ranges.",
+    "- Stay encouraging and specific — end with one actionable next step when it fits naturally.",
+  );
+
+  return lines.join("\n");
+}
+
+export async function POST(req: NextRequest) {
+  let parsed: z.SafeParseReturnType<unknown, z.infer<typeof bodySchema>>;
+  try {
+    parsed = bodySchema.safeParse(await req.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
+  }
+
+  const { messages, context } = parsed.data;
+
+  try {
+    const zai = await ZAI.create();
+    const recent = messages.slice(-12);
+    const completion = await zai.chat.completions.create({
+      messages: [
+        { role: "assistant", content: buildSystemPrompt(context) },
+        ...recent.map((m) => ({ role: m.role, content: m.content })),
+      ],
+      thinking: { type: "disabled" },
+    });
+
+    const reply = completion.choices[0]?.message?.content?.trim();
+    if (!reply) throw new Error("Empty completion");
+
+    return NextResponse.json({ reply });
+  } catch (err) {
+    console.error("[/api/chat] nutritionist request failed:", err);
+    return NextResponse.json(
+      { error: "Your nutritionist is unreachable right now. Please try again in a moment." },
+      { status: 502 },
+    );
+  }
+}

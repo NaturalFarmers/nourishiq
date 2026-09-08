@@ -58,6 +58,24 @@ export interface Prescription {
   goalTagline: string;
 }
 
+/** Serializable snapshot of the prescription sent to the AI nutritionist. */
+export interface RxContext {
+  goalLabel: string;
+  goalTagline: string;
+  kcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG: number;
+  waterMl: number;
+  sugarCapG: number;
+  sodiumCapMg: number;
+  bmi: number;
+  bmiCategory: string;
+  proteinPerKg: number;
+  rules: string[];
+}
+
 // ─── Foods ───────────────────────────────────────────────────────────────────
 
 export type FoodCategory =
@@ -137,4 +155,48 @@ export interface ActivityItem {
 export interface FitResult {
   score: number;
   reasons: { good: string[]; bad: string[] };
+}
+
+// ─── Food logging ─────────────────────────────────────────────────────────
+
+export type MealSlot = "breakfast" | "lunch" | "snack" | "dinner";
+
+/** One logged item, already scaled to the eaten amount (grams). */
+export interface LogEntry {
+  id: string;
+  slot: MealSlot;
+  name: string;
+  emoji: string;
+  grams: number;
+  /** nutrition scaled to `grams` */
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+  offPlan?: string; // reason shown if item clashes with the prescription
+}
+
+export interface DayLog {
+  date: string; // YYYY-MM-DD (local)
+  meals: LogEntry[];
+  waterMl: number;
+}
+
+export interface DayTotals {
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+}
+
+// ─── AI chat ────────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  ts: number;
 }

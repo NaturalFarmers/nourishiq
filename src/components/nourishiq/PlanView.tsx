@@ -1,17 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { useNourish } from "@/lib/nourishiq/store";
 import { computePrescription, fitScore, GOALS } from "@/lib/nourishiq/engine";
 import { FOODS } from "@/lib/nourishiq/foods";
 import { sampleDay } from "@/lib/nourishiq/mealplan";
+import { exportPrescriptionPdf } from "@/lib/nourishiq/pdf";
 import type { ViewId } from "./HomeView";
 import { useHydrated, Skeleton } from "./primitives";
 
 export default function PlanView({ go }: { go: (v: ViewId) => void }) {
   const hydrated = useHydrated();
   const profile = useNourish((s) => s.profile);
+  const passportId = useNourish((s) => s.passportId);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfNote, setPdfNote] = useState<string | null>(null);
   const rx = hydrated ? computePrescription(profile) : null;
   const goal = GOALS.find((g) => g.id === profile.goal);
 
@@ -81,6 +86,28 @@ export default function PlanView({ go }: { go: (v: ViewId) => void }) {
           </div>
         </div>
         <p className="text-[12px] text-stone-600 mt-3 leading-relaxed">{rx.bmiNote} {rx.goalTagline}.</p>
+        <button
+          onClick={async () => {
+            if (pdfBusy) return;
+            setPdfBusy(true);
+            setPdfNote(null);
+            try {
+              const result = await exportPrescriptionPdf(rx, profile, passportId);
+              setPdfNote(result === "shared" ? "Shared!" : "PDF downloaded — check your downloads.");
+              setTimeout(() => setPdfNote(null), 4000);
+            } catch {
+              setPdfNote("Could not build the PDF. Please try again.");
+            } finally {
+              setPdfBusy(false);
+            }
+          }}
+          disabled={pdfBusy}
+          className="mt-3.5 w-full rounded-2xl bg-white/80 border border-[#0E6B4E]/25 py-2.5 text-[13px] font-extrabold text-[#0E6B4E] hover:bg-white active:scale-[0.99] transition-all disabled:opacity-60"
+          aria-label="Download prescription as PDF"
+        >
+          {pdfBusy ? "Building your PDF…" : "⬇︎  Save / Share prescription as PDF"}
+        </button>
+        {pdfNote && <p className="text-[11.5px] font-bold text-[#0E6B4E] mt-2 text-center">{pdfNote}</p>}
       </motion.section>
 
       {/* Macros */}

@@ -37,3 +37,25 @@ Work Log:
 Stage Summary:
 - App state confirmed production-ready and unchanged from Task 1; no code changes needed.
 - Task 2 complete: verification passed on both viewports, ready for delivery.
+
+---
+Task ID: 3
+Agent: Super Z (main agent)
+Task: Add (1) food logging with daily macro rings, (2) AI "Ask your nutritionist" chat, (3) PDF export/share of prescription.
+
+Work Log:
+- Types: added MealSlot, LogEntry, DayLog, DayTotals, ChatMessage, RxContext.
+- Store: logs (Record<date, DayLog>), chat (last 40 msgs persisted), addLogEntry/removeLogEntry/addWater/setWater/clearDay/pushChat/clearChat, dateKey() local-date helper, totalsOf() aggregator.
+- LogView: 7-day chips, big kcal ring (kcal left/over) + 4 macro rings (protein/carbs/fat/fibre) via SVG stroke-dasharray, water tracker (250 ml steps, glass segments), 4 meal slots with per-item kcal + macros + off-plan tags + remove, clear-day.
+- FoodPicker bottom sheet: search over 90 foods, fit-score chips (sorted by fit when rx exists), off-plan warning (gluten/lactose/nuts/pattern), serving auto-parse from food.serving, gram presets + custom, live macro preview, slot selector.
+- /api/chat (Next.js route, nodejs runtime): zod-validated body (messages + rx/profile/today context), system prompt embeds prescription numbers + today's totals + behaviour rules (exclusions strict, Indian-forward examples, safety referral), ZAI.create() + chat.completions (thinking disabled), last-12 history, 502 fallback message.
+- NutritionistChat: full-screen view (nav hidden), persisted history, quick prompts, markdown rendering (react-markdown + tailwind arbitrary-child classes), typing dots, auto-scroll, error banner with retry, dvh-based layout + safe-area composer.
+- pdf.ts (jsPDF, client-side): A4 green header band, goal block, energy card (kcal/BMR/TDEE/BMI), daily-targets table (7 rows), numbered nutritionist notes with wrapping, disclaimer, page footers; Web Share API when files shareable else blob download; clean() sanitiser for WinAnsi-unsafe glyphs (≤→under, ≥→at least, ≈→~) — fixed corrupted-glyph bug found in browser test.
+- Shell: nav now 6 items (+Diary), chat view with FAB (pink, fixed above nav), HomeView 8 cards (+Food Diary, +Ask Nutritionist), PlanView gained "Save / Share prescription as PDF" button with busy/confirmation states.
+- jspdf installed via bun. Lint clean.
+- Browser-verified (390×844): picker flow paneer 100g→265 kcal ✓, rings 1,555 left / 18/140g protein ✓, water 0.5/2.5L ✓, assessment→rings unlock ✓, AI chat "Review my day so far" → context-aware markdown reply in 4.2s (POST /api/chat 200) ✓, PDF export → file downloaded ✓ (2 iterations to fix ≤/≈ glyph corruption), diary state persisted across reload ✓, desktop 1280×800 diary layout ✓, zero console errors.
+
+Stage Summary:
+- All three requested features shipped and end-to-end verified on mobile + desktop.
+- Sample prescription PDF saved to /home/z/my-project/download/sample-prescription.pdf.
+- Chat keeps full prescription + diary context server-side only (SDK never exposed to client).
