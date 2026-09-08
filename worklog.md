@@ -95,3 +95,20 @@ Work Log:
 Stage Summary:
 - All 6 requested features confirmed live: food log + macro rings, AI nutritionist chat, prescription PDF export, weight/waist trend charts, weekly adherence streaks, nutritionist report mode.
 - App running and healthy on port 3000; session closed with user-facing explanation delivered.
+
+---
+Task ID: 6
+Agent: Super Z (main agent)
+Task: Live end-to-end demo of the full user journey in agent-browser (mobile 390x844): log breakfast in Diary -> AI "Review my day so far" -> export nutritionist report PDF.
+
+Work Log:
+- Fresh browser session had no passport -> completed 4-step assessment via UI (visceral fat goal, non-veg + low GI + high fibre, male/30/170/70, moderately active) -> prescription 2,110 kcal / 140P / 203C / 82F / 35 fibre.
+- Diary: added Steel-cut oats (cooked) 200 g (142 kcal) + Whole egg (boiled) 50 g (77.5 kcal) -> breakfast 220 kcal; water +2x250 ml -> 0.5/2.5 L; rings verified exact: 1,890 kcal left, P 12/140, C 25/203, F 9/82, Fib 3/35.
+- Chat: FAB -> quick prompt "Review my day so far" auto-sent; POST /api/chat 200; reply cited exact logged totals (220 kcal, 12 g protein vs 2,110/140 targets), visceral-fat goal, and gave protein + fibre catch-up advice.
+- Progress: saved weight 70 kg + waist 85 cm (same-day upsert OK); opened report mode (patient hero NP-FCFED85, prescription snapshot, adherence, measurements, most-logged foods); clicked "Export report as PDF" -> download fired.
+- PDF verified by reading both pages: green header w/ passport + date, patient snapshot (BMI 24.2 at-risk Asian, BMR 1618, TDEE 2507, rx 2,110), prescription table, adherence chips + 7-day dot strip (today orange) + weekly bars + averages line (220 kcal, 12/140 P, 3/35 fib, 0.5/2.5 L), most-logged foods table (oats x1 142, egg x1 78), disclaimer, 2 pages A4, zero glyph corruption.
+- Console: zero errors. Screenshots in /home/z/my-project/demo/ (01-05) + exported report PDF.
+
+Stage Summary:
+- Full journey (log -> AI review -> report export) verified live in one continuous session; all numbers consistent across diary, rings, AI context, and PDF.
+- Demo artifacts at /home/z/my-project/demo/. No code changes needed.
