@@ -21,3 +21,19 @@ Stage Summary:
 - Deliverable: runnable Next.js app on port 3000, only `/` route, fully client-side (no DB needed), mobile-first responsive.
 - Key decisions: deterministic client-side engine (no AI latency, offline-capable), goals+needs model (1 primary goal + pattern + exclusions + boosters) mapping the user's 8 requirements cleanly, reference-faithful pastel design system (#0B5C46 brand green).
 - Verification: lint clean, dev.log clean, golden path exercised end-to-end in real browser on both viewports.
+
+---
+Task ID: 2
+Agent: Super Z (main agent)
+Task: Re-verify NourishIQ app after session continuation ("continue" request) and deliver.
+
+Work Log:
+- Confirmed all NourishIQ files intact (8 engine/data modules, 8 UI components).
+- Dev server already running on port 3000 (EADDRINUSE was from duplicate start attempt only; GET / returns 200).
+- Agent-browser end-to-end re-verification at 390×844 mobile: home → assessment step 1 (6 goals) → step 2 (non-veg + No Gluten + Low GI + High Fibre) → step 3 (male/30/170/70 + moderately active) → step 4 confirm → prescription generated: 2,110 kcal, protein 140g, carbs 203g, fat 82g, fibre 35g, water 2.5L, sugar ≤26g, sodium ≤2.3g, 5 personalised nutritionist rules — all correct.
+- Desktop 1280×800 screenshot verified: hero card, macro cards, notes, sticky bottom nav all render cleanly.
+- Console: zero errors (only React DevTools info + HMR connected).
+
+Stage Summary:
+- App state confirmed production-ready and unchanged from Task 1; no code changes needed.
+- Task 2 complete: verification passed on both viewports, ready for delivery.
