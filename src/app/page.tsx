@@ -10,6 +10,8 @@ import RecipesView from "@/components/nourishiq/RecipesView";
 import ActivityView from "@/components/nourishiq/ActivityView";
 import GuidelinesView from "@/components/nourishiq/GuidelinesView";
 import LogView from "@/components/nourishiq/LogView";
+import ProgressView from "@/components/nourishiq/ProgressView";
+import ReportView from "@/components/nourishiq/ReportView";
 import NutritionistChat from "@/components/nourishiq/NutritionistChat";
 import { useHydrated } from "@/components/nourishiq/primitives";
 
@@ -17,9 +19,9 @@ const NAV: { id: ViewId; label: string; emoji: string }[] = [
   { id: "home", label: "Home", emoji: "🏠" },
   { id: "plan", label: "Plan", emoji: "📋" },
   { id: "log", label: "Diary", emoji: "📔" },
+  { id: "progress", label: "Progress", emoji: "📈" },
   { id: "foods", label: "Foods", emoji: "🥗" },
   { id: "recipes", label: "Recipes", emoji: "👨‍🍳" },
-  { id: "guides", label: "Guides", emoji: "📖" },
 ];
 
 const TITLES: Record<ViewId, string> = {
@@ -31,6 +33,8 @@ const TITLES: Record<ViewId, string> = {
   activity: "Energy Burn",
   guides: "Guidelines",
   log: "Food Diary",
+  progress: "Your Progress",
+  report: "Nutritionist Report",
   chat: "Ask Your Nutritionist",
 };
 
@@ -94,6 +98,8 @@ export default function Page() {
                 {view === "activity" && <ActivityView />}
                 {view === "guides" && <GuidelinesView />}
                 {view === "log" && <LogView go={go} />}
+                {view === "progress" && <ProgressView go={go} />}
+                {view === "report" && <ReportView go={go} />}
                 {view === "chat" && <NutritionistChat />}
               </motion.div>
             </AnimatePresence>

@@ -193,6 +193,15 @@ export interface DayTotals {
   sugar: number;
 }
 
+// ─── Body measurements ──────────────────────────────────────────────────────
+
+/** One day's optional body measurements (upserted per local date). */
+export interface Measurement {
+  date: string; // YYYY-MM-DD (local)
+  weightKg?: number;
+  waistCm?: number;
+}
+
 // ─── AI chat ────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {

@@ -50,13 +50,26 @@ const bodySchema = z.object({
       waterMl: z.number(),
       entries: z.number(),
     }),
+    week: z
+      .object({
+        adherencePct7: z.number(),
+        adherencePct28: z.number(),
+        loggingDays7: z.number(),
+        loggingStreak: z.number(),
+        onTrackStreak: z.number(),
+        avgKcal7: z.number().nullable(),
+        avgProtein7: z.number().nullable(),
+        avgFiber7: z.number().nullable(),
+        avgWaterMl7: z.number().nullable(),
+      })
+      .nullable(),
   }),
 });
 
 type Ctx = z.infer<typeof bodySchema>["context"];
 
 function buildSystemPrompt(ctx: Ctx): string {
-  const { rx, profile, today } = ctx;
+  const { rx, profile, today, week } = ctx;
   const lines: string[] = [
     "You are the NourishIQ AI nutritionist — a warm, evidence-based clinical nutritionist inside a personalised nutrition app.",
     "You give practical, culturally-aware guidance (Indian-forward food examples: dals, millets, paneer, curd, sprouts — plus global staples).",
@@ -83,6 +96,17 @@ function buildSystemPrompt(ctx: Ctx): string {
     lines.push("", "The user has NOT completed their intake assessment yet — give general evidence-based guidance and gently suggest taking the 2-minute assessment in the app to unlock personalised numbers.");
   }
 
+  if (week) {
+    lines.push(
+      "",
+      "── WEEKLY ADHERENCE (last 7 / 28 days) ──",
+      `- Targets met on logged days: ${week.adherencePct7}% (7-day) · ${week.adherencePct28}% (28-day)`,
+      `- Days logged: ${week.loggingDays7} of last 7 · log streak ${week.loggingStreak} day(s) · on-track streak ${week.onTrackStreak} day(s)`,
+      `- Daily averages when logged: ${week.avgKcal7 ?? "—"} kcal · protein ${week.avgProtein7 ?? "—"} g · fibre ${week.avgFiber7 ?? "—"} g · water ${week.avgWaterMl7 != null ? (week.avgWaterMl7 / 1000).toFixed(1) : "—"} L`,
+      "When asked about progress, patterns or consistency, use these numbers — praise streaks and name the weakest macro gently.",
+    );
+  }
+
   lines.push(
     "",
     "── WHAT THEY ATE TODAY ──",
@@ -104,12 +128,13 @@ function buildSystemPrompt(ctx: Ctx): string {
 }
 
 export async function POST(req: NextRequest) {
-  let parsed: z.SafeParseReturnType<unknown, z.infer<typeof bodySchema>>;
+  let body: unknown;
   try {
-    parsed = bodySchema.safeParse(await req.json());
+    body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
   }

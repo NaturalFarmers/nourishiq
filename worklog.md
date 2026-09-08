@@ -59,3 +59,24 @@ Stage Summary:
 - All three requested features shipped and end-to-end verified on mobile + desktop.
 - Sample prescription PDF saved to /home/z/my-project/download/sample-prescription.pdf.
 - Chat keeps full prescription + diary context server-side only (SDK never exposed to client).
+
+---
+Task ID: 4
+Agent: Super Z (main agent)
+Task: Add weight/waist tracking charts, weekly adherence streaks, and a nutritionist report mode to NourishIQ.
+
+Work Log:
+- Types/store: added Measurement (weightKg/waistCm keyed by local date) + setMeasurement upsert action; reset clears measurements.
+- progress.ts (new analytics module): adherenceForDay scoring (4 criteria: kcal within 90-110%, protein >=85%, fibre >=70%, water >=75%; met>=4 full / >=2 partial / else missed), buildAdherenceSummary (28-day grid, Monday-based 5-week buckets, 7/28-day %, kcal/protein/fibre/water averages on logged days, logging + on-track streaks with today-in-progress semantics, best streaks), measurementSeries, healthyWeightBand (BMI 18.5-22.9 Asian thresholds), waistTargetOf (90 M / 80 F IDF), buildReport assembler + top-foods-by-frequency over 28 days.
+- charts.tsx (new): pure-SVG TrendChart (animated polyline + area gradient, healthy-band shading, dashed target line, first/last date ticks, end-value tag), WeekBars (colour-coded by score), DayDots (7-day strip), Sparkline.
+- ProgressView (new): green hero with streak chips, dual measurement inputs (validation 20-300 kg / 40-200 cm, same-day upsert, intake-weight fallback), weight chart with healthy band, waist chart with 90/80 cm goal line, weekly adherence section (bars + dots + avg-vs-target cards + scoring legend), report CTA, empty-diary nudge; locked-adherence fallback without rx.
+- ReportView (new): nutritionist report mode - patient hero, prescription snapshot + today-so-far, adherence block (7/28-day %, dots, streak chips, averages), weight/waist rows with sparklines, most-logged foods, export section; no-rx fallback.
+- pdf.ts: exportReportPdf (A4, 2 pages) - header band, patient snapshot, prescription table, adherence stat chips + 7-day dot strip with dates + weekly bars drawn as rects, averages line, real line charts drawn with jsPDF segments/dots (weight with healthy band, waist with dashed goal), top-foods table, updated disclaimer, page footers, Web Share / download.
+- Shell: nav Guides->Progress (6 items kept; Guides still on home grid), titles + routes for progress/report; HomeView +2 journey cards (grid 8 -> 8 + 2 wide); LogView streak chip (3->4 day live update verified); /api/chat schema + system prompt gained week adherence block; NutritionistChat builds week context + "How consistent was my week?" quick prompt.
+- Fixes: hooks-order violation in LogView (useMemo after early return), bmi.category typo, WeekBars key prop typing, pre-existing zod v4 SafeParseReturnType typing in route.ts (parse-then-validate pattern).
+- Verification (agent-browser 390x844 + 1280x800): empty states, weight/waist save + upsert, seeded 3-day diary -> streak math exact (3-day log / 2-day on-track / 58%->44% 28-day after today's log), weekly bars 38% last week + 50% this week, dot colours correct (grey/grey/grey/orange/amber/green/grey), trend charts draw with band + goal line, paneer 150 g -> 398 kcal + streak 4, report view numbers match, PDF exported and inspected (2 pages, charts render, no glyph corruption), AI chat answered weekly-consistency question citing 4/7 days, 44%, and exact averages via new week context, desktop layout clean, zero console errors.
+
+Stage Summary:
+- Three new features shipped and verified end-to-end: body tracking charts, adherence streaks/weekly scoring, nutritionist report mode with shareable PDF.
+- Sample report PDF at /home/z/my-project/download/sample-progress-report.pdf.
+- App now covers the full loop: prescribe -> log -> score adherence -> trend body metrics -> report to a real nutritionist.

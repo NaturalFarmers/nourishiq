@@ -5,7 +5,7 @@ import { useNourish, DEFAULT_PROFILE } from "@/lib/nourishiq/store";
 import { GOALS, computePrescription } from "@/lib/nourishiq/engine";
 import { useHydrated } from "./primitives";
 
-export type ViewId = "home" | "assessment" | "plan" | "foods" | "recipes" | "activity" | "guides" | "log" | "chat";
+export type ViewId = "home" | "assessment" | "plan" | "foods" | "recipes" | "activity" | "guides" | "log" | "progress" | "report" | "chat";
 
 interface HomeViewProps {
   go: (v: ViewId) => void;
@@ -108,6 +108,38 @@ export default function HomeView({ go }: HomeViewProps) {
             </span>
           </motion.button>
         ))}
+      </div>
+
+      {/* Your journey — progress tracking */}
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.32 }}
+          onClick={() => go("progress")}
+          className="bg-[#E0F2EF] rounded-[26px] p-4 text-left flex items-center gap-3.5 ring-1 ring-[#0F766E]/15 hover:shadow-md active:scale-[0.98] transition-all"
+          aria-label="Open progress: weight and waist charts, streaks"
+        >
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm text-[22px]" aria-hidden>📈</span>
+          <span className="min-w-0">
+            <span className="block text-[16.5px] leading-5 font-extrabold text-[#0F766E]">Progress</span>
+            <span className="block text-[11.5px] text-stone-500 mt-0.5">Weight &amp; waist charts · streaks</span>
+          </span>
+        </motion.button>
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.36 }}
+          onClick={() => go("report")}
+          className="bg-[#FBF3E2] rounded-[26px] p-4 text-left flex items-center gap-3.5 ring-1 ring-[#A97715]/15 hover:shadow-md active:scale-[0.98] transition-all"
+          aria-label="Open nutritionist report"
+        >
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm text-[22px]" aria-hidden>🧾</span>
+          <span className="min-w-0">
+            <span className="block text-[16.5px] leading-5 font-extrabold text-[#A97715]">Nutritionist Report</span>
+            <span className="block text-[11.5px] text-stone-500 mt-0.5">Summary &amp; shareable PDF</span>
+          </span>
+        </motion.button>
       </div>
 
       {/* Passport */}

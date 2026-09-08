@@ -5,12 +5,13 @@ import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import { useNourish, dateKey, totalsOf } from "@/lib/nourishiq/store";
 import { computePrescription } from "@/lib/nourishiq/engine";
+import { buildAdherenceSummary } from "@/lib/nourishiq/progress";
 import type { RxContext } from "@/lib/nourishiq/types";
 
 const QUICK_PROMPTS = [
   "Review my day so far",
+  "How consistent was my week?",
   "High-protein dinner ideas for tonight?",
-  "Smart snacks under 150 kcal",
   "How do I shrink belly fat faster?",
 ];
 
@@ -57,6 +58,21 @@ function buildContext(state: ReturnType<typeof useNourish.getState>) {
       waterMl: day?.waterMl ?? 0,
       entries: day?.meals.length ?? 0,
     },
+    week: (() => {
+      if (!rxFull) return null;
+      const s = buildAdherenceSummary(state.logs, rxFull, 3);
+      return {
+        adherencePct7: s.adherencePct7,
+        adherencePct28: s.adherencePct28,
+        loggingDays7: s.loggingDays7,
+        loggingStreak: s.loggingStreak,
+        onTrackStreak: s.onTrackStreak,
+        avgKcal7: s.avgKcal7,
+        avgProtein7: s.avgProtein7,
+        avgFiber7: s.avgFiber7,
+        avgWaterMl7: s.avgWater7,
+      };
+    })(),
   };
 }
 

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useNourish, dateKey, totalsOf } from "@/lib/nourishiq/store";
 import { computePrescription, GOALS } from "@/lib/nourishiq/engine";
+import { adherenceForDay } from "@/lib/nourishiq/progress";
 import type { MealSlot } from "@/lib/nourishiq/types";
 import type { ViewId } from "./HomeView";
 import { useHydrated, Skeleton } from "./primitives";
@@ -95,6 +96,21 @@ export default function LogView({ go }: { go: (v: ViewId) => void }) {
   const day = logs[active];
   const totals = totalsOf(day);
 
+  // quick logging streak (walks back from today; today may still be in progress)
+  const streak = useMemo(() => {
+    if (!rx) return 0;
+    let n = 0;
+    for (let i = 0; i < 14; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const a = adherenceForDay(logs, rx, dateKey(d));
+      if (a.logged) n++;
+      else if (i === 0) continue;
+      else break;
+    }
+    return n;
+  }, [logs, rx]);
+
   if (!hydrated) {
     return (
       <div className="px-5 pt-6 space-y-4">
@@ -155,6 +171,21 @@ export default function LogView({ go }: { go: (v: ViewId) => void }) {
           </button>
         ))}
       </div>
+
+      {/* Streak chip */}
+      {streak >= 2 && (
+        <button
+          onClick={() => go("progress")}
+          className="w-full rounded-2xl bg-[#FBF3E2] border border-[#A97715]/15 px-4 py-2.5 flex items-center gap-2.5 text-left active:scale-[0.99] transition-transform"
+          aria-label={`View your ${streak} day logging streak in Progress`}
+        >
+          <span className="text-base" aria-hidden>🔥</span>
+          <span className="flex-1 text-[12px] text-stone-600">
+            <b className="text-[#A97715]">{streak}-day logging streak</b> — keep it alive
+          </span>
+          <span className="text-[#A97715]" aria-hidden>›</span>
+        </button>
+      )}
 
       {/* Rings hero */}
       <section

@@ -7,6 +7,7 @@ import type {
   DayLog,
   LogEntry,
   ChatMessage,
+  Measurement,
 } from "./types";
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -27,6 +28,8 @@ interface NourishState {
   seenWelcome: boolean;
   /** food diary keyed by local date YYYY-MM-DD */
   logs: Record<string, DayLog>;
+  /** body measurements keyed by local date YYYY-MM-DD */
+  measurements: Record<string, Measurement>;
   /** AI nutritionist conversation (last 40 messages kept) */
   chat: ChatMessage[];
   setPassport: (id: string) => void;
@@ -37,6 +40,7 @@ interface NourishState {
   addWater: (date: string, ml: number) => void;
   setWater: (date: string, ml: number) => void;
   clearDay: (date: string) => void;
+  setMeasurement: (date: string, patch: { weightKg?: number; waistCm?: number }) => void;
   pushChat: (m: ChatMessage) => void;
   clearChat: () => void;
   reset: () => void;
@@ -58,6 +62,7 @@ export const useNourish = create<NourishState>()(
       profile: DEFAULT_PROFILE,
       seenWelcome: false,
       logs: {},
+      measurements: {},
       chat: [],
       setPassport: (id) => set({ passportId: id }),
       setProfile: (p) =>
@@ -86,11 +91,20 @@ export const useNourish = create<NourishState>()(
         }),
       clearDay: (date) =>
         set((s) => ({ logs: { ...s.logs, [date]: emptyDay(date) } })),
+      setMeasurement: (date, patch) =>
+        set((s) => {
+          const m = s.measurements[date] ?? { date };
+          const next: Measurement = { ...m, ...patch };
+          // drop keys explicitly cleared
+          if (patch.weightKg === undefined && m.weightKg !== undefined) next.weightKg = m.weightKg;
+          if (patch.waistCm === undefined && m.waistCm !== undefined) next.waistCm = m.waistCm;
+          return { measurements: { ...s.measurements, [date]: next } };
+        }),
       pushChat: (m) =>
         set((s) => ({ chat: [...s.chat, m].slice(-40) })),
       clearChat: () => set({ chat: [] }),
       reset: () =>
-        set({ profile: DEFAULT_PROFILE, seenWelcome: false, logs: {}, chat: [] }),
+        set({ profile: DEFAULT_PROFILE, seenWelcome: false, logs: {}, measurements: {}, chat: [] }),
     }),
     {
       name: "nourishiq-passport",
