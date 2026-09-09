@@ -15,13 +15,28 @@ const MEAL_LABEL: Record<string, string> = {
   dinner: "Dinner",
 };
 
+/** Display order for region filter chips (south first — the app's heart). */
+const REGION_ORDER = [
+  "Tamil Nadu", "Kerala", "Karnataka", "Andhra & Telangana", "South India",
+  "Maharashtra", "Gujarat", "Punjab", "North India", "Rajasthan", "Bengal",
+  "Northeast", "Pan-India", "Global",
+];
+
 export default function RecipesView() {
   const hydrated = useHydrated();
   const profile = useNourish((s) => s.profile);
   const rx = hydrated ? computePrescription(profile) : null;
 
   const [meal, setMeal] = useState<string>("all");
+  const [region, setRegion] = useState<string>("all");
   const [detail, setDetail] = useState<Recipe | null>(null);
+
+  const regions = useMemo(() => {
+    const present = new Set(RECIPES.map((r) => r.region));
+    return REGION_ORDER.filter((r) => present.has(r)).concat(
+      [...present].filter((r) => !REGION_ORDER.includes(r)).sort(),
+    );
+  }, []);
 
   const list = useMemo(() => {
     let items = RECIPES.map((r) => ({
@@ -31,13 +46,14 @@ export default function RecipesView() {
         : 0,
     }));
     if (meal !== "all") items = items.filter(({ r }) => r.meal.includes(meal as Recipe["meal"][number]));
+    if (region !== "all") items = items.filter(({ r }) => r.region === region);
     if (rx && profile.exclusions.includes("gluten_free")) items = items.filter(({ r }) => r.glutenFree);
     if (rx) {
       // sort: recipes aligned with the user's goal first
       items.sort((a, b) => b.match - a.match || a.r.id.localeCompare(b.r.id));
     }
     return items;
-  }, [meal, rx, profile]);
+  }, [meal, region, rx, profile]);
 
   if (!hydrated) {
     return (
@@ -53,9 +69,31 @@ export default function RecipesView() {
       <header className="mb-4">
         <h1 className="text-[26px] font-extrabold text-stone-900 tracking-tight">Recipes</h1>
         <p className="text-[13px] text-stone-500 mt-0.5">
-          {rx ? `Sorted for your ${rx.goalLabel.toLowerCase()} plan.` : "Indian-forward, dietitian-designed meals with full macros."}
+          {rx ? `Sorted for your ${rx.goalLabel.toLowerCase()} plan.` : ""}
+          {" "}{RECIPES.length} regional recipes — Tamil Nadu to Bengal — with full macros.
         </p>
       </header>
+
+      {/* Region filter */}
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Region filter">
+        <button
+          onClick={() => setRegion("all")}
+          className={`shrink-0 rounded-full border-2 px-3.5 py-1.5 text-[12.5px] font-bold transition-all active:scale-95 ${region === "all" ? "border-[#0B5C46] bg-[#E4F6EE] text-[#0E6B4E]" : "border-stone-200 bg-white text-stone-500"}`}
+          aria-pressed={region === "all"}
+        >
+          All
+        </button>
+        {regions.map((rg) => (
+          <button
+            key={rg}
+            onClick={() => setRegion(rg)}
+            className={`shrink-0 rounded-full border-2 px-3.5 py-1.5 text-[12.5px] font-bold transition-all active:scale-95 ${region === rg ? "border-[#0B5C46] bg-[#E4F6EE] text-[#0E6B4E]" : "border-stone-200 bg-white text-stone-500"}`}
+            aria-pressed={region === rg}
+          >
+            {rg}
+          </button>
+        ))}
+      </div>
 
       {/* Meal filter */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Meal filter">
@@ -89,7 +127,7 @@ export default function RecipesView() {
               <span className="flex-1 min-w-0">
                 <span className="block text-[15.5px] font-extrabold text-stone-900 leading-tight">{r.name}</span>
                 <span className="text-[11px] font-semibold text-stone-500">
-                  {r.meal.map((m) => MEAL_LABEL[m]).join(" · ")} · {r.timeMin} min · {r.diet === "vegan" ? "Vegan" : r.diet === "vegetarian" ? "Veg" : r.diet === "egg" ? "Egg" : "Non-veg"}
+                  {r.region} · {r.meal.map((m) => MEAL_LABEL[m]).join(" · ")} · {r.timeMin} min · {r.diet === "vegan" ? "Vegan" : r.diet === "vegetarian" ? "Veg" : r.diet === "egg" ? "Egg" : "Non-veg"}
                 </span>
               </span>
             </div>
@@ -132,7 +170,7 @@ function RecipeDetail({ r }: { r: Recipe }) {
             <span className="text-[19px] font-extrabold text-stone-900 leading-tight">{r.name}</span>
           </DialogTitle>
           <DialogDescription className="text-left text-[12px] font-semibold text-stone-500 mt-1">
-            {r.meal.map((m) => MEAL_LABEL[m]).join(" · ")} · {r.timeMin} min · serves 1
+            {r.region} · {r.meal.map((m) => MEAL_LABEL[m]).join(" · ")} · {r.timeMin} min · serves 1
           </DialogDescription>
         </DialogHeader>
         <div className="mt-3 flex flex-wrap gap-1.5">

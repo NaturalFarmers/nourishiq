@@ -130,3 +130,22 @@ Work Log:
 Stage Summary:
 - Three features shipped: barcode quick-add (type + camera + chips), full reminder system (meals/water/weigh-in/review with in-app banner + browser notifications), recipe library grown to 42.
 - All verified end-to-end on 390x844 + 1280x800; screenshots + recipe/barcode dumps in /home/z/my-project/demo/.
+
+---
+Task ID: 8
+Agent: Super Z (main agent)
+Task: Add as many regional recipes as possible, South Indian focus ("add as many as regional recipes i.e. South Indian").
+
+Work Log:
+- types.ts: Recipe gained required `region: string` field (cuisine/region of origin) — TS-enforced on all 77 entries.
+- recipes.ts: all 42 existing recipes tagged with regions (Tamil Nadu/Kerala/Karnataka/South India/Maharashtra/Gujarat/Punjab/North India/Rajasthan/Bengal/Northeast/Pan-India/Global).
+- +35 new authentic regional recipes (42 -> 77): Tamil Nadu 8 (idli+sambar, rasam, puliyodharai, beans usili, keerai poriyal, millet uttapam, Chettinad chicken, cabbage kootu), Kerala 7 (appam+stew, puttu+kadala, avial, meen curry, fish moilee, erissery, idiyappam+kurma), Karnataka 4 (millet bisi bele bath, ragi mudde, neer dosa, ragi akki roti), Andhra & Telangana 4 (pesarattu, gongura pappu, kodi kura, podi idli), Maharashtra 3 (zunka+bhakri, light misal, thalipeeth), Gujarat 2 (khaman dhokla, dal dhokli), Punjab 2 (sarson saag+makki roti, light dal makhani), Rajasthan 2 (bajra khichdi, light laal maas), Bengal 2 (machher jhol, bhaja muger dal), Northeast 1 (Naga bamboo-shoot dal). Each with authentic ingredients/method/chef-dietitian tip, accurate diet + gluten flags (thalipeeth & dal dhokli intentionally contain gluten), per-serving macros (Atwater-coherent), GI, goals incl. weight_gain tags.
+- Scripts fixed mid-edit: stray `tips: ""` on pesarattu removed; awkward andhra_chicken ingredient line rewritten.
+- RecipesView: region filter chip row (14 regions, south-first order, same pill styling as meal filter) above meal chips; cards + detail dialog show region first; subtitle now "77 regional recipes — Tamil Nadu to Bengal — with full macros."; filter combines with meal filter + gluten-free exclusion + goal sort.
+- scripts/validate-recipes.ts: unique ids, enum validity, Atwater kcal coherence (±15 or ±8%), hue palette, ingredient/step/tip presence — ALL PASS. Coverage: South Indian 32/77 (42%); vegan 27 / vegetarian 32 / non-veg 14; meal spread 29/44/15/47.
+- Verification (agent-browser 390x844 + 1280x800): 77 cards render; Tamil Nadu filter -> exactly 10; Kerala -> 7; Karnataka+Breakfast combo -> exactly 4 (ragi dosa, ragi porridge, neer dosa, akki roti); idli detail dialog shows "Tamil Nadu · Breakfast · 20 min" + GI/gluten-free chips + tip; fresh assessment (gain weight, non-veg, low GI -> 2,910 kcal / 112P / 411C / 91F) -> Plan sample day picks NEW Beans Usili as lunch (x4.5 = 970 kcal); goal-sorted recipes rank new South Indian recipes #1 (Beans Usili) and #4 (Kerala Red Fish Curry); zero console errors; lint clean. Screenshots 08-11 in /home/z/my-project/demo/.
+
+Stage Summary:
+- Recipe library 42 -> 77 with a required region dimension; South India is now 42% of the library (32 recipes across TN/Kerala/Karnataka/Andhra-Telangana/generic South).
+- Region filter UI ships in Recipes view; sample-day generator and goal-sort automatically leverage the enlarged pool.
+- All data machine-validated; regression-verified with a live assessment + Plan + Recipes flows on both viewports.

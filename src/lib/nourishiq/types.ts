@@ -122,6 +122,8 @@ export type DietType = "vegan" | "vegetarian" | "egg" | "nonveg";
 export interface Recipe {
   id: string;
   name: string;
+  /** cuisine / region of origin, e.g. "Tamil Nadu", "Kerala", "Punjab" */
+  region: string;
   emoji: string;
   meal: ("breakfast" | "lunch" | "snack" | "dinner")[];
   kcal: number;
