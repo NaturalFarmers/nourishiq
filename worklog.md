@@ -149,3 +149,21 @@ Stage Summary:
 - Recipe library 42 -> 77 with a required region dimension; South India is now 42% of the library (32 recipes across TN/Kerala/Karnataka/Andhra-Telangana/generic South).
 - Region filter UI ships in Recipes view; sample-day generator and goal-sort automatically leverage the enlarged pool.
 - All data machine-validated; regression-verified with a live assessment + Plan + Recipes flows on both viewports.
+
+---
+Task ID: 9
+Agent: Super Z (main agent)
+Task: User requested all conversation in English (does not know Chinese); verify app state after session continuation.
+
+Work Log:
+- Read worklog: confirmed Tasks 7 (barcode quick-add + reminders + 42 recipes) and 8 (77 regional recipes, South Indian focus, region filter) were fully shipped and verified in the prior session.
+- Health check: GET / -> 200; recipes.ts contains 77 `region:` entries; RecipesView + RemindersSheet wired in page.tsx.
+- Live agent-browser re-verification (390x844, fresh passport NP-FF3AA7B):
+  - Recipes view: subtitle "77 regional recipes — Tamil Nadu to Bengal", 14-region filter chips (south-first), meal chips; Tamil Nadu filter -> exactly 10 recipes (Sundal, Curd Rice, Idli+Sambar, Rasam, Puliyodharai, Beans Usili, Keerai Poriyal, Millet Uttapam, Chettinad Chicken, Cabbage Kootu).
+  - Diary: "Quick add to Lunch — Scan a barcode, type a code, or tap a recent food" hero present; typed barcode 8903765887577 -> auto-resolved to Paneer (fresh) portion view; logged 60 g -> Lunch 159 kcal in diary (exact math).
+  - Reminders sheet: master switch, breakfast 08:30 time input, water nudge toggle all render with correct disabled states.
+- Console: zero errors. Desktop 1280x800 screenshot saved to demo/12-reminders-desktop.png.
+
+Stage Summary:
+- All three requested features confirmed live and healthy after session continuation; no code changes needed.
+- Language preference recorded: ALL user-facing conversation must be in English going forward.
