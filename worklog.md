@@ -167,3 +167,21 @@ Work Log:
 Stage Summary:
 - All three requested features confirmed live and healthy after session continuation; no code changes needed.
 - Language preference recorded: ALL user-facing conversation must be in English going forward.
+
+---
+Task ID: 10
+Agent: Super Z (main agent)
+Task: Add a weekly "calories vs budget" summary to the Progress view.
+
+Work Log:
+- progress.ts: added CalorieDay/CalorieWeek/CalorieBudgetSummary types + buildCalorieBudgetWeeks(logs, rx, 5) — Monday-based buckets matching the adherence windows; per week: per-day kcal (null when unlogged/future), loggedCount, avgKcal, budgetTotal (daily budget × logged days only), netKcal (consumed − week budget), over/within/under day counts (band = 90–110% of daily budget). Added calorieBudgetInsight(): plain-language weekly summary personalised by goal (gain/loss/neutral), net-sign based (fixes a wording bug where a 103%-avg week would have said "under"), kg conversion at 7,700 kcal/kg shown only when ≥0.05 kg.
+- charts.tsx: added BudgetWeekBars (weekly avg as % of budget, dashed 100% "budget" guide, green within ±10% / orange over / amber under / grey empty) and DayKcalBars (7 bars Mon..Sun for the selected week, dashed budget line, kcal value labels, today's label emphasised in green). Shared budgetColor() helper.
+- ProgressView.tsx: new "Calories vs budget" card placed between the waist chart and Weekly adherence: 5-week bar overview, ‹ / › week navigator with "THIS WEEK · 7 SEPT – 13 SEPT" style range label, 3 stat chips (Avg/day vs budget, Week net kcal + ≈kg, Within ±10% x-of-y), insight paragraph (role=status); locked-state card with "Take the intake" CTA when no prescription exists. Hooks (wkIdx state + calorieWeeks memo) placed before the hydration early-return.
+- scripts/test-calorie-budget.ts (bun): 28/28 PASS — bucket structure (5 weeks, Mon..Sun, contains today, labels This week/Last week/Wk 24/08), this-week math vs budget 2000 (3 logged days, budgetTotal 6000 logged-days-only, avg 2067, net +200, over/within/under 1/2/0 incl. 90%-boundary-inclusive), last-week net-0 case, empty-week nulls, and all insight branches (mixed-103%-says-over regression, kg threshold, net-zero, loss/gain-goal personalisation, empty week). Fixed one wrong assertion (days[6] is Sunday, not today) — logic itself was correct.
+- scripts/seed-progress-demo.ts (bun): deterministic browser seed — profile male/30/170/70/moderate/visceral-fat via the app's own computePrescription → budget 2,110 kcal; logs seeded at 100%/120%/90% (this week), 150%/50% (last week), 75% (wk −2), 102.5% (wk −3), empty (wk −4).
+- Verification (agent-browser, seed via localStorage 'nourishiq-passport', budget 2,110): week bars render –/103%/75%/100%/103%; day bars W9=1,899, T10=2,532, F11=2,110 (today green), unlogged/future days stubbed; chips Avg 2,180 · net +211 · 2 of 3; insight "Averaging 103% of budget — over by 211 kcal this week…". Week nav: Last week → avg 2,110, net 0, "Exactly on budget… balanced out"; Wk 24/08 → avg 1,583, net −527, "≈ −0.1 kg", loss-goal deficit insight. Locked state verified after clearing storage. tsc clean (app code), eslint clean, zero console errors; screenshots demo/13 (mobile last-week), demo/14 (mobile this-week), demo/15 (desktop).
+
+Stage Summary:
+- Progress view now answers "how do my calories compare with my budget, week by week" with engine-exact math, goal-aware advice, and the same design language as the rest of the app.
+- Budget = prescription kcal target; weeks use the same Monday windows as adherence so the two sections never disagree.
+- Pure analytics + pure SVG charts: no new dependencies, fully deterministic, unit-tested.

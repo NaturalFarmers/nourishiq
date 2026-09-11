@@ -198,6 +198,132 @@ export function buildAdherenceSummary(
   };
 }
 
+// ─── Calories vs budget (weekly) ─────────────────────────────────────────────
+
+export interface CalorieDay {
+  date: string; // YYYY-MM-DD
+  /** total kcal eaten that day; null when nothing was logged */
+  kcal: number | null;
+}
+
+export interface CalorieWeek {
+  label: string; // "This week", "Last week", "Wk 25/08"
+  start: string; // YYYY-MM-DD of Monday
+  days: CalorieDay[]; // Mon..Sun (future days → kcal null)
+  loggedCount: number;
+  /** mean kcal across logged days, rounded */
+  avgKcal: number | null;
+  /** daily budget × logged days — the fair week budget */
+  budgetTotal: number | null;
+  /** consumed − budgetTotal (+ = over budget) */
+  netKcal: number | null;
+  /** logged days above 110% of the daily budget */
+  overDays: number;
+  /** logged days within 90–110% of the daily budget */
+  withinDays: number;
+  /** logged days below 90% of the daily budget */
+  underDays: number;
+}
+
+export interface CalorieBudgetSummary {
+  weeks: CalorieWeek[]; // oldest → newest, ends current week
+  budget: number; // daily kcal budget (rx.kcal)
+}
+
+/**
+ * Weekly "calories vs budget" buckets for the Progress view.
+ * Same Monday-based week windows as the adherence summary so the two
+ * sections always tell one coherent story.
+ */
+export function buildCalorieBudgetWeeks(
+  logs: Record<string, DayLog>,
+  rx: Prescription,
+  weeks = 5,
+): CalorieBudgetSummary {
+  const list: CalorieWeek[] = [];
+  const thisMonday = weekStartOf(dateKey());
+  const [y0, m0, d0] = thisMonday.split("-").map(Number);
+
+  for (let w = weeks - 1; w >= 0; w--) {
+    const startD = new Date();
+    startD.setFullYear(y0, m0 - 1, d0);
+    startD.setDate(startD.getDate() - w * 7);
+    const start = dateKey(startD);
+
+    const days: CalorieDay[] = [];
+    for (let i = 0; i < 7; i++) {
+      const dd = new Date(startD);
+      dd.setDate(dd.getDate() + i);
+      const dk = dateKey(dd);
+      const day = logs[dk];
+      const logged = !!day && day.meals.length > 0;
+      days.push({ date: dk, kcal: logged ? Math.round(totalsOf(day).kcal) : null });
+    }
+
+    const kvals = days.map((x) => x.kcal).filter((v): v is number => v != null);
+    const loggedCount = kvals.length;
+    const kcalSum = kvals.reduce((a, b) => a + b, 0);
+    const avgKcal = loggedCount ? Math.round(kcalSum / loggedCount) : null;
+    const budgetTotal = loggedCount ? rx.kcal * loggedCount : null;
+    const netKcal = budgetTotal != null ? kcalSum - budgetTotal : null;
+    const overDays = kvals.filter((v) => v > rx.kcal * 1.1).length;
+    const withinDays = kvals.filter((v) => v >= rx.kcal * 0.9 && v <= rx.kcal * 1.1).length;
+    const underDays = loggedCount - overDays - withinDays;
+
+    const label =
+      w === 0 ? "This week" : w === 1 ? "Last week" : `Wk ${start.slice(8)}/${start.slice(5, 7)}`;
+
+    list.push({ label, start, days, loggedCount, avgKcal, budgetTotal, netKcal, overDays, withinDays, underDays });
+  }
+
+  return { weeks: list, budget: rx.kcal };
+}
+
+/** 7,700 kcal ≈ 1 kg of body fat — the standard rough conversion. */
+const KCAL_PER_KG = 7700;
+
+/**
+ * Plain-language weekly summary, personalised by the user's goal.
+ * Pure so the bun test script can assert on the wording.
+ */
+export function calorieBudgetInsight(
+  w: CalorieWeek,
+  budget: number,
+  goal: UserProfile["goal"],
+): string {
+  if (w.loggedCount === 0)
+    return "Nothing logged this week yet — add meals in the diary to see how you compare.";
+
+  const avg = w.avgKcal ?? 0;
+  const net = w.netKcal ?? 0;
+  const pct = budget > 0 ? Math.round((avg / budget) * 100) : 0;
+  const kg = Math.abs(net / KCAL_PER_KG);
+  const kgTxt = kg >= 0.05 ? ` (≈ ${net > 0 ? "+" : "-"}${kg.toFixed(1)} kg/week at this pace)` : "";
+  const isGain = goal === "muscle_gain" || goal === "weight_gain";
+  const isLoss = goal === "weight_loss" || goal === "visceral_fat";
+
+  if (w.withinDays === w.loggedCount)
+    return `Spot on — all ${w.loggedCount} logged day${w.loggedCount > 1 ? "s" : ""} landed within ±10% of your budget.`;
+
+  if (net > 0)
+    return `Averaging ${pct}% of budget — over by ${Math.abs(net).toLocaleString("en-IN")} kcal this week${kgTxt}. ${
+      isGain
+        ? "That surplus supports your gain goal — keep it protein-forward."
+        : "Trim evening portions to pull the weekly average back to budget."
+    }`;
+
+  if (net < 0)
+    return `Averaging ${pct}% of budget — under by ${Math.abs(net).toLocaleString("en-IN")} kcal this week${kgTxt}. ${
+      isLoss
+        ? "A steady deficit is exactly how sustainable loss works."
+        : isGain
+          ? "Too little to gain on — add one energy-dense snack a day."
+          : "Occasional shortfalls are fine — just avoid large, frequent deficits."
+    }`;
+
+  return "Exactly on budget for the week — your over and under days balanced out.";
+}
+
 // ─── Measurements ────────────────────────────────────────────────────────────
 
 export interface SeriesPoint { date: string; value: number }

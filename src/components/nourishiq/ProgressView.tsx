@@ -6,6 +6,8 @@ import { useNourish, dateKey } from "@/lib/nourishiq/store";
 import { computePrescription } from "@/lib/nourishiq/engine";
 import {
   buildAdherenceSummary,
+  buildCalorieBudgetWeeks,
+  calorieBudgetInsight,
   measurementSeries,
   latestWeight,
   healthyWeightBand,
@@ -14,7 +16,7 @@ import {
 } from "@/lib/nourishiq/progress";
 import type { ViewId } from "./HomeView";
 import { useHydrated, Skeleton } from "./primitives";
-import { TrendChart, WeekBars, DayDots } from "./charts";
+import { TrendChart, WeekBars, DayDots, BudgetWeekBars, DayKcalBars } from "./charts";
 
 const CRITERIA = [
   { key: "kcal", label: "Calories", note: "within ±10% of target" },
@@ -33,11 +35,18 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
   const [wInput, setWInput] = useState("");
   const [cInput, setCInput] = useState("");
   const [mErr, setMErr] = useState<string | null>(null);
+  /** which week is shown in the day-by-day strip (0 = oldest, 4 = this week) */
+  const [wkIdx, setWkIdx] = useState(4);
 
   const rx = hydrated ? computePrescription(profile) : null;
 
   const adherence = useMemo(
     () => (hydrated && rx ? buildAdherenceSummary(logs, rx, 5) : null),
+    [hydrated, rx, logs],
+  );
+
+  const calorieWeeks = useMemo(
+    () => (hydrated && rx ? buildCalorieBudgetWeeks(logs, rx, 5) : null),
     [hydrated, rx, logs],
   );
 
@@ -89,6 +98,17 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
     if (!adherence) return null;
     const vals = adherence.days7.filter((d) => d.logged).map(pick).filter((v): v is number => v != null);
     return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) : null;
+  };
+
+  // ── calories vs budget helpers ──
+  const wkLen = calorieWeeks?.weeks.length ?? 1;
+  const selIdx = Math.min(wkIdx, wkLen - 1);
+  const selWeek = calorieWeeks?.weeks[selIdx] ?? null;
+  const addDays = (ds: string, n: number): string => {
+    const [y, m, d] = ds.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + n);
+    return dateKey(dt);
   };
 
   return (
@@ -250,6 +270,101 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
           </p>
         )}
       </section>
+
+      {/* ── Calories vs budget ── */}
+      {calorieWeeks && rx ? (
+        <section className="rounded-[26px] bg-white border border-stone-200/80 p-4" aria-label="weekly calories vs budget">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-[14px] font-extrabold text-stone-900">🔥 Calories vs budget</h2>
+            <span className="text-[11px] font-bold text-stone-400 shrink-0">{rx.kcal.toLocaleString("en-IN")} kcal/day</span>
+          </div>
+          <p className="text-[11.5px] text-stone-500 mt-0.5">
+            Weekly intake against your prescription — green bars sit within ±10% of budget.
+          </p>
+
+          <div className="mt-1">
+            <BudgetWeekBars weeks={calorieWeeks.weeks} budget={calorieWeeks.budget} />
+          </div>
+
+          {selWeek && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWkIdx(Math.max(0, selIdx - 1))}
+                  disabled={selIdx === 0}
+                  aria-label="Show previous week"
+                  className="rounded-xl bg-stone-100 px-2.5 py-1.5 text-[15px] leading-none font-extrabold text-stone-600 disabled:opacity-30 active:scale-95 transition-transform"
+                >
+                  ‹
+                </button>
+                <p className="text-[11.5px] font-extrabold text-stone-600 uppercase tracking-wide text-center">
+                  {selWeek.label} · {shortDate(selWeek.start)} – {shortDate(addDays(selWeek.start, 6))}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setWkIdx(Math.min(calorieWeeks.weeks.length - 1, selIdx + 1))}
+                  disabled={selIdx === calorieWeeks.weeks.length - 1}
+                  aria-label="Show next week"
+                  className="rounded-xl bg-stone-100 px-2.5 py-1.5 text-[15px] leading-none font-extrabold text-stone-600 disabled:opacity-30 active:scale-95 transition-transform"
+                >
+                  ›
+                </button>
+              </div>
+              <div className="mt-1.5">
+                <DayKcalBars days={selWeek.days} budget={calorieWeeks.budget} today={dateKey()} />
+              </div>
+
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {[
+                  {
+                    label: "Avg / day",
+                    value: selWeek.avgKcal != null ? selWeek.avgKcal.toLocaleString("en-IN") : "—",
+                    sub: `budget ${calorieWeeks.budget.toLocaleString("en-IN")}`,
+                  },
+                  {
+                    label: "Week net",
+                    value: selWeek.netKcal != null ? `${selWeek.netKcal > 0 ? "+" : ""}${selWeek.netKcal.toLocaleString("en-IN")}` : "—",
+                    sub: selWeek.netKcal != null
+                      ? Math.abs(selWeek.netKcal / 7700) >= 0.05
+                        ? `kcal · ≈ ${selWeek.netKcal > 0 ? "+" : "-"}${Math.abs(selWeek.netKcal / 7700).toFixed(1)} kg`
+                        : "kcal"
+                      : "kcal",
+                  },
+                  {
+                    label: "Within ±10%",
+                    value: selWeek.loggedCount ? `${selWeek.withinDays} of ${selWeek.loggedCount}` : "—",
+                    sub: "logged days",
+                  },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-2xl bg-stone-50 px-2.5 py-2.5">
+                    <p className="text-[10px] font-bold text-stone-500">{s.label}</p>
+                    <p className="text-[14.5px] font-extrabold text-stone-900 mt-0.5 truncate">{s.value}</p>
+                    <p className="text-[9.5px] font-semibold text-stone-400 truncate">{s.sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-3 rounded-2xl bg-[#E4F6EE]/70 px-4 py-3 text-[11.5px] font-semibold text-stone-700" role="status">
+                {calorieBudgetInsight(selWeek, calorieWeeks.budget, profile.goal)}
+              </p>
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="rounded-[26px] bg-white border border-stone-200/80 p-4" aria-label="calories vs budget locked">
+          <h2 className="text-[14px] font-extrabold text-stone-900">🔥 Calories vs budget</h2>
+          <p className="text-[12.5px] text-stone-500 mt-1">
+            Compare each week&apos;s intake with your daily calorie budget — take the intake to set your budget first.
+          </p>
+          <button
+            onClick={() => go("assessment")}
+            className="mt-3 w-full rounded-2xl bg-[#0B5C46] py-3 text-[13.5px] font-bold text-white active:scale-[0.99] transition-transform"
+          >
+            Take the intake
+          </button>
+        </section>
+      )}
 
       {/* ── Adherence ── */}
       {adherence && rx ? (

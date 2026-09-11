@@ -3,7 +3,7 @@
 // ─── Pure-SVG charts (no chart lib — deterministic, tiny, brandable) ────────
 
 import { motion } from "framer-motion";
-import type { SeriesPoint } from "@/lib/nourishiq/progress";
+import type { SeriesPoint, CalorieWeek, CalorieDay } from "@/lib/nourishiq/progress";
 
 export interface TrendChartProps {
   series: SeriesPoint[];
@@ -197,6 +197,159 @@ export function WeekBars({
             </text>
             <text x={xx + bw / 2} y={H - 7} fontSize="7.5" fontWeight="700" fill="#78716C" textAnchor="middle">
               {w.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── Weekly calories-vs-budget bars ──────────────────────────────────────────
+
+function budgetColor(pct: number | null): string {
+  if (pct == null) return "#E7E5E4";
+  if (pct > 110) return "#DC6A33"; // over budget
+  if (pct >= 90) return "#0B5C46"; // within ±10%
+  return "#D9A40B"; // under budget
+}
+
+/**
+ * One bar per week: average daily kcal as a % of the daily budget.
+ * Dashed guide = 100% (budget). Green = within ±10%, orange = over, amber = under.
+ */
+export function BudgetWeekBars({
+  weeks,
+  budget,
+  height = 118,
+}: {
+  weeks: CalorieWeek[];
+  /** daily calorie budget (rx.kcal) — the 100% guide */
+  budget: number;
+  height?: number;
+}) {
+  const W = 320;
+  const H = height;
+  const padT = 15;
+  const padB = 20;
+  const ih = H - padT - padB;
+  const bw = 34;
+  const gap = (W - weeks.length * bw) / (weeks.length + 1);
+
+  const pcts = weeks.map((w) =>
+    w.avgKcal != null && w.avgKcal > 0 ? (w.avgKcal / budget) * 100 : null,
+  );
+  const maxPct = Math.max(100, ...(pcts.filter((v): v is number => v != null)));
+  const yMax = Math.max(115, maxPct * 1.18); // headroom for labels + budget line
+  const yPct = (p: number) => padT + ih - (p / yMax) * ih;
+  const yBudget = yPct(100);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Weekly average calories as a percentage of the daily budget">
+      {/* budget guide at 100% */}
+      <line x1="6" x2={W - 6} y1={yBudget} y2={yBudget} stroke="#0B5C46" strokeWidth="1.1" strokeDasharray="4 3" opacity="0.65" />
+      <text x="6" y={yBudget - 4} fontSize="7.5" fill="#0E6B4E" fontWeight="700">budget</text>
+      {weeks.map((w, i) => {
+        const pct = pcts[i];
+        const h = pct == null ? 3 : Math.max(3, (pct / yMax) * ih);
+        const xx = gap + i * (bw + gap);
+        const yy = padT + ih - h;
+        const col = budgetColor(pct);
+        return (
+          <g key={w.start + w.label}>
+            <motion.rect
+              x={xx} y={yy} width={bw} height={h} rx="5"
+              fill={col}
+              initial={{ opacity: 0, y: padT + ih }}
+              animate={{ opacity: 1, y: yy }}
+              transition={{ duration: 0.45, delay: i * 0.06 }}
+            />
+            <text
+              x={xx + bw / 2} y={yy - 4} fontSize="8.5" fontWeight="800"
+              fill={pct == null ? "#A8A29E" : "#292524"} textAnchor="middle"
+            >
+              {pct == null ? "–" : `${Math.round(pct)}%`}
+            </text>
+            <text x={xx + bw / 2} y={H - 7} fontSize="7.5" fontWeight="700" fill="#78716C" textAnchor="middle">
+              {w.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+const DOW = ["M", "T", "W", "T", "F", "S", "S"];
+
+/**
+ * One bar per day of the selected week (Mon..Sun) with a dashed daily-budget
+ * line. Value labels on top; today's label is emphasised.
+ */
+export function DayKcalBars({
+  days,
+  budget,
+  today,
+  height = 128,
+}: {
+  days: CalorieDay[];
+  budget: number;
+  today?: string;
+  height?: number;
+}) {
+  const W = 320;
+  const H = height;
+  const padT = 14;
+  const padB = 20;
+  const ih = H - padT - padB;
+  const bw = 30;
+  const gap = (W - days.length * bw) / (days.length + 1);
+
+  const kvals = days.map((d) => d.kcal).filter((v): v is number => v != null);
+  const maxK = kvals.length ? Math.max(...kvals) : 0;
+  const yMax = Math.max(budget * 1.28, maxK * 1.15, 500);
+  const yK = (v: number) => padT + ih - (v / yMax) * ih;
+  const yBudget = yK(budget);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Calories eaten each day of the selected week against the daily budget">
+      <line x1="6" x2={W - 6} y1={yBudget} y2={yBudget} stroke="#0B5C46" strokeWidth="1.1" strokeDasharray="4 3" opacity="0.65" />
+      <text x="6" y={yBudget - 4} fontSize="7.5" fill="#0E6B4E" fontWeight="700">
+        budget {budget.toLocaleString()}
+      </text>
+      {days.map((d, i) => {
+        const xx = gap + i * (bw + gap);
+        const h = d.kcal == null ? 3 : Math.max(3, (d.kcal / yMax) * ih);
+        const yy = padT + ih - h;
+        const pct = d.kcal != null && d.kcal > 0 ? (d.kcal / budget) * 100 : null;
+        const col = budgetColor(pct);
+        const isToday = today != null && d.date === today;
+        return (
+          <g key={d.date}>
+            <motion.rect
+              x={xx} y={yy} width={bw} height={h} rx="4.5"
+              fill={col}
+              initial={{ opacity: 0, y: padT + ih }}
+              animate={{ opacity: 1, y: yy }}
+              transition={{ duration: 0.4, delay: i * 0.045 }}
+            />
+            {d.kcal != null && (
+              <text
+                x={xx + bw / 2} y={yy - 3.5} fontSize="7.5"
+                fontWeight={isToday ? 800 : 700}
+                fill={isToday ? "#292524" : "#57534E"}
+                textAnchor="middle"
+              >
+                {d.kcal.toLocaleString()}
+              </text>
+            )}
+            <text
+              x={xx + bw / 2} y={H - 7} fontSize="7.5"
+              fontWeight={isToday ? 800 : 700}
+              fill={isToday ? "#0E6B4E" : "#78716C"}
+              textAnchor="middle"
+            >
+              {`${DOW[i]} ${Number(d.date.slice(8))}`}
             </text>
           </g>
         );
