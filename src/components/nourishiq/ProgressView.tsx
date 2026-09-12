@@ -16,7 +16,8 @@ import {
 } from "@/lib/nourishiq/progress";
 import type { ViewId } from "./HomeView";
 import { useHydrated, Skeleton } from "./primitives";
-import { TrendChart, WeekBars, DayDots, BudgetWeekBars, DayKcalBars } from "./charts";
+import { TrendChart, WeekBars, DayDots, BudgetWeekBars, DayKcalBars, StepsTrendChart } from "./charts";
+import { buildStepsWeeks } from "@/lib/nourishiq/steps";
 
 const CRITERIA = [
   { key: "kcal", label: "Calories", note: "within ±10% of target" },
@@ -37,6 +38,8 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
   const [mErr, setMErr] = useState<string | null>(null);
   /** which week is shown in the day-by-day strip (0 = oldest, 4 = this week) */
   const [wkIdx, setWkIdx] = useState(4);
+  /** which week the steps trend card shows (0 = oldest, 4 = this week) */
+  const [sWkIdx, setSWkIdx] = useState(4);
 
   const rx = hydrated ? computePrescription(profile) : null;
 
@@ -52,6 +55,10 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
 
   const wSeries = useMemo(() => measurementSeries(measurements, "weightKg"), [measurements]);
   const cSeries = useMemo(() => measurementSeries(measurements, "waistCm"), [measurements]);
+  const stepsWeeks = useMemo(
+    () => (hydrated ? buildStepsWeeks(5, profile.weightKg) : null),
+    [hydrated, profile.weightKg],
+  );
   const cur = latestWeight(measurements, profile);
   const band = healthyWeightBand(profile.heightCm);
   const cTarget = waistTargetOf(profile.sex);
@@ -110,6 +117,14 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
     dt.setDate(dt.getDate() + n);
     return dateKey(dt);
   };
+
+  // ── steps helpers (stepsWeeks windows are parallel to calorieWeeks) ──
+  const selStepsIdx = stepsWeeks ? Math.min(sWkIdx, stepsWeeks.length - 1) : 0;
+  const selStepsWeek = stepsWeeks?.[selStepsIdx] ?? null;
+  const earnedByDate: Record<string, number> | undefined =
+    stepsWeeks && calorieWeeks
+      ? Object.fromEntries(stepsWeeks[selIdx].days.map((d) => [d.date, d.earnedKcal ?? 0]))
+      : undefined;
 
   return (
     <div className="px-5 pt-5 pb-8 space-y-4">
@@ -312,8 +327,28 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
                 </button>
               </div>
               <div className="mt-1.5">
-                <DayKcalBars days={selWeek.days} budget={calorieWeeks.budget} today={dateKey()} />
+                <DayKcalBars days={selWeek.days} budget={calorieWeeks.budget} today={dateKey()} earnedByDate={earnedByDate} />
               </div>
+
+              {/* eaten vs earned legend + weekly earned line */}
+              <div className="mt-1 flex items-center gap-3 text-[9.5px] font-bold text-stone-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2.5 rounded-[3px] bg-[#0B5C46]" aria-hidden />eaten
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2.5 rounded-[3px] bg-[#8FD6B7]" aria-hidden />earned · steps
+                </span>
+                {stepsWeeks && (
+                  <span className="ml-auto font-extrabold text-[#0E6B4E]">
+                    +{stepsWeeks[selIdx].earnedTotal.toLocaleString("en-IN")} kcal earned
+                  </span>
+                )}
+              </div>
+              {stepsWeeks && (
+                <p className="mt-1 text-[10.5px] font-semibold text-stone-500" role="status">
+                  👟 Light-green caps add {stepsWeeks[selIdx].earnedTotal.toLocaleString("en-IN")} kcal earned from steps {selWeek.label.toLowerCase()} — they sit on top of eaten calories.
+                </p>
+              )}
 
               <div className="mt-1 grid grid-cols-3 gap-2">
                 {[
@@ -363,6 +398,78 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
           >
             Take the intake
           </button>
+        </section>
+      )}
+
+      {/* ── Steps & movement ── */}
+      {stepsWeeks && selStepsWeek && (
+        <section className="rounded-[26px] bg-white border border-stone-200/80 p-4" aria-label="weekly steps trend">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-[14px] font-extrabold text-stone-900">👟 Steps &amp; movement</h2>
+            <span className="shrink-0 rounded-full bg-[#FBF3E2] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#A97715]">
+              estimated
+            </span>
+          </div>
+          <p className="text-[11.5px] text-stone-500 mt-0.5">
+            Daily step trend — these earned calories are the light-green caps on your day bars.
+          </p>
+
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setSWkIdx(Math.max(0, selStepsIdx - 1))}
+              disabled={selStepsIdx === 0}
+              aria-label="Show previous steps week"
+              className="rounded-xl bg-stone-100 px-2.5 py-1.5 text-[15px] leading-none font-extrabold text-stone-600 disabled:opacity-30 active:scale-95 transition-transform"
+            >
+              ‹
+            </button>
+            <p className="text-[11.5px] font-extrabold text-stone-600 uppercase tracking-wide text-center">
+              {selStepsWeek.label} · {shortDate(selStepsWeek.start)} – {shortDate(addDays(selStepsWeek.start, 6))}
+            </p>
+            <button
+              type="button"
+              onClick={() => setSWkIdx(Math.min(stepsWeeks.length - 1, selStepsIdx + 1))}
+              disabled={selStepsIdx === stepsWeeks.length - 1}
+              aria-label="Show next steps week"
+              className="rounded-xl bg-stone-100 px-2.5 py-1.5 text-[15px] leading-none font-extrabold text-stone-600 disabled:opacity-30 active:scale-95 transition-transform"
+            >
+              ›
+            </button>
+          </div>
+          <div className="mt-1.5">
+            <StepsTrendChart days={selStepsWeek.days} goalSteps={10000} />
+          </div>
+
+          <div className="mt-1 grid grid-cols-3 gap-2">
+            {[
+              {
+                label: "Avg / day",
+                value: selStepsWeek.avgSteps != null ? selStepsWeek.avgSteps.toLocaleString("en-IN") : "—",
+                sub: "steps",
+              },
+              {
+                label: "Week total",
+                value: selStepsWeek.totalSteps.toLocaleString("en-IN"),
+                sub: "steps",
+              },
+              {
+                label: "Earned",
+                value: `+${selStepsWeek.earnedTotal.toLocaleString("en-IN")}`,
+                sub: "kcal from steps",
+              },
+            ].map((s) => (
+              <div key={s.label} className="rounded-2xl bg-stone-50 px-2.5 py-2.5">
+                <p className="text-[10px] font-bold text-stone-500">{s.label}</p>
+                <p className="text-[14.5px] font-extrabold text-stone-900 mt-0.5 truncate">{s.value}</p>
+                <p className="text-[9.5px] font-semibold text-stone-400 truncate">{s.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-2.5 rounded-2xl bg-stone-50 px-4 py-3 text-[11px] font-semibold text-stone-600">
+            Estimates from a typical routine until NourishIQ connects to Health Connect on Android. Earned kcal ≈ steps × 0.0004 × {profile.weightKg} kg — today&apos;s count still grows until midnight.
+          </p>
         </section>
       )}
 

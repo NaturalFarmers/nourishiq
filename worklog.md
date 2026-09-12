@@ -185,3 +185,22 @@ Stage Summary:
 - Progress view now answers "how do my calories compare with my budget, week by week" with engine-exact math, goal-aware advice, and the same design language as the rest of the app.
 - Budget = prescription kcal target; weeks use the same Monday windows as adherence so the two sections never disagree.
 - Pure analytics + pure SVG charts: no new dependencies, fully deterministic, unit-tested.
+
+---
+Task ID: 18
+Agent: Super Z (main agent)
+Task: Show earned kcal (from steps) on the Calories-vs-budget day bars themselves, and add a weekly steps trend chart to Progress.
+
+Work Log:
+- Session note: sandbox had been reset to the post-Task-10 snapshot (health-import/exportLogs/nativeHealth files from Tasks 12–17 not present on disk); rebuilt only the pieces this feature needs.
+- steps.ts (new, pure & deterministic): estimateStepsForDate(date) via FNV-1a hash → 3,800–11,500 base with ×1.25 weekend boost (clamp 14,400), stable per calendar day; estimateStepsToday() scales by time-of-day (6% by 06:00 → full by 22:00) so today's bar grows through the day; earnedKcalFromSteps = steps × 0.0004 × bodyKg (≈280 kcal per 10k steps at 70 kg); buildStepsWeeks(5, weightKg) builds Monday windows byte-identical to buildCalorieBudgetWeeks (verified starts equal) with per-day steps/earnedKcal/isFuture/isPartial + week totals/avg/earnedTotal; fetchNativeSteps() Level-2 hook (Capacitor-gated, resolves null on web → estimates) — dependency-free until the native shell ships.
+- charts.tsx: DayKcalBars gained earnedByDate map — light-green (#8FD6B7) earned cap stacked on top of each consumed bar with a green "+N" label above the stack; kcal value moves inside the bar in white when the bar is tall enough (≥18px), else stacks above the +N label; unlogged days still show their earned cap alone; yMax accounts for kcal+earned; new StepsTrendChart — Mon..Sun line + soft area fill, dots (today emphasised, future days faded ticks only), dashed avg guide ("avg 6.5k"), dashed 10k goal guide, peak + today value labels, DOW ticks.
+- ProgressView.tsx: sWkIdx state + stepsWeeks memo (parallel windows to calorieWeeks); earnedByDate merged into DayKcalBars; "eaten / earned · steps" legend + "+1,096 kcal earned" chip + explainer line under the day bars; new "👟 Steps & movement" card (own ‹/› week nav, ESTIMATED badge, StepsTrendChart, Avg/Week-total/Earned chips, footnote with formula × 70 kg and "today still grows" note); works without a prescription (steps don't need rx).
+- Tests: scripts/test-steps-earned.ts — 33/33 PASS (determinism, 120-day bounds sweep 3,800–14,400, variety, today-partial 6%..100% by hour, earned math exact 10k@70=280 / 8k@90=288, week structure + Monday starts == budget weeks, future days null, aggregates, weight-aware scaling, earnedByDate merge shape, native hook null). Regression: test-calorie-budget.ts 28/28 PASS (progress.ts untouched).
+- tsc: zero src/ errors; eslint exit 0.
+- E2E (agent-browser, seeded NP-SEED101 budget 2,110): day bars show caps +300/+269/+134/+203/+123/+67 = 1,096 == lib earnedTotal exactly; legend + chip match; steps chart line/area/6 dots, avg 6.5k (lib 6,532), peak 10,725, today partial 2,399 growing with time; steps week nav ‹ → "Last week · 31 Aug – 6 Sept" chips 7,629 / 53,406 / +1,496 — all byte-equal to buildStepsWeeks(5,70)[3]; budget nav independent; zero console errors/page errors; screenshots demo/24-earned-daybars-mobile.png, 25-steps-trend-mobile.png, 26-progress-steps-desktop.png.
+
+Stage Summary:
+- Earned calories from steps now live on the day bars themselves as light-green caps with +N labels — earned but unlogged days still show their cap.
+- Weekly steps trend card added with avg + 10k goal guides and weight-aware earned kcal; windows never disagree with the budget card.
+- Web shows honest deterministic estimates (badge + footnote); fetchNativeSteps() is the ready seam for real Health Connect data in the Capacitor shell.
