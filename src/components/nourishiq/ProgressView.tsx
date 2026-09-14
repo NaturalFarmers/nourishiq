@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useNourish, dateKey } from "@/lib/nourishiq/store";
 import { computePrescription } from "@/lib/nourishiq/engine";
@@ -17,7 +17,7 @@ import {
 import type { ViewId } from "./HomeView";
 import { useHydrated, Skeleton } from "./primitives";
 import { TrendChart, WeekBars, DayDots, BudgetWeekBars, DayKcalBars, StepsTrendChart } from "./charts";
-import { buildStepsWeeks } from "@/lib/nourishiq/steps";
+import { buildStepsWeeks, parseStepsTakeoutCsv, netAfterEarned, earnedNetNote } from "@/lib/nourishiq/steps";
 
 const CRITERIA = [
   { key: "kcal", label: "Calories", note: "within ±10% of target" },
@@ -32,6 +32,8 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
   const logs = useNourish((s) => s.logs);
   const measurements = useNourish((s) => s.measurements);
   const setMeasurement = useNourish((s) => s.setMeasurement);
+  const dailySteps = useNourish((s) => s.dailySteps);
+  const setDailySteps = useNourish((s) => s.setDailySteps);
 
   const [wInput, setWInput] = useState("");
   const [cInput, setCInput] = useState("");
@@ -40,6 +42,8 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
   const [wkIdx, setWkIdx] = useState(4);
   /** which week the steps trend card shows (0 = oldest, 4 = this week) */
   const [sWkIdx, setSWkIdx] = useState(4);
+  const stepsFileRef = useRef<HTMLInputElement>(null);
+  const [impMsg, setImpMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const rx = hydrated ? computePrescription(profile) : null;
 
@@ -56,8 +60,8 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
   const wSeries = useMemo(() => measurementSeries(measurements, "weightKg"), [measurements]);
   const cSeries = useMemo(() => measurementSeries(measurements, "waistCm"), [measurements]);
   const stepsWeeks = useMemo(
-    () => (hydrated ? buildStepsWeeks(5, profile.weightKg) : null),
-    [hydrated, profile.weightKg],
+    () => (hydrated ? buildStepsWeeks(5, profile.weightKg, dailySteps) : null),
+    [hydrated, profile.weightKg, dailySteps],
   );
   const cur = latestWeight(measurements, profile);
   const band = healthyWeightBand(profile.heightCm);
@@ -100,6 +104,25 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
     if (kind === "weightKg") setWInput(""); else setCInput("");
   };
 
+  /** Parse an imported Health Connect / Google Fit steps CSV and merge it in. */
+  const importStepsFile = (f: File | undefined | null) => {
+    if (!f) return;
+    f.text()
+      .then((txt) => {
+        const parsed = parseStepsTakeoutCsv(txt);
+        if (parsed.days === 0) {
+          setImpMsg({ ok: false, text: "No step rows found — this doesn't look like a Health Connect / Google Fit steps CSV." });
+          return;
+        }
+        setDailySteps(parsed.byDate);
+        setImpMsg({
+          ok: true,
+          text: `Imported ${parsed.rows} row${parsed.rows === 1 ? "" : "s"} — real steps for ${parsed.days} day${parsed.days === 1 ? "" : "s"}${parsed.skipped ? ` (${parsed.skipped} skipped)` : ""}.`,
+        });
+      })
+      .catch(() => setImpMsg({ ok: false, text: "Could not read that file — try a .csv export." }));
+  };
+
   // per-criterion averages for the legend
   const avgPct = (pick: (d: { kcalPct: number | null; proteinPct: number | null; fiberPct: number | null; waterPct: number | null }) => number | null) => {
     if (!adherence) return null;
@@ -125,6 +148,9 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
     stepsWeeks && calorieWeeks
       ? Object.fromEntries(stepsWeeks[selIdx].days.map((d) => [d.date, d.earnedKcal ?? 0]))
       : undefined;
+  const selEarned = stepsWeeks ? stepsWeeks[selIdx].earnedTotal : 0;
+  const netAfter = netAfterEarned(selWeek?.netKcal ?? null, selEarned);
+  const realDaysTotal = Object.keys(dailySteps).length;
 
   return (
     <div className="px-5 pt-5 pb-8 space-y-4">
@@ -358,13 +384,17 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
                     sub: `budget ${calorieWeeks.budget.toLocaleString("en-IN")}`,
                   },
                   {
-                    label: "Week net",
-                    value: selWeek.netKcal != null ? `${selWeek.netKcal > 0 ? "+" : ""}${selWeek.netKcal.toLocaleString("en-IN")}` : "—",
-                    sub: selWeek.netKcal != null
-                      ? Math.abs(selWeek.netKcal / 7700) >= 0.05
-                        ? `kcal · ≈ ${selWeek.netKcal > 0 ? "+" : "-"}${Math.abs(selWeek.netKcal / 7700).toFixed(1)} kg`
-                        : "kcal"
-                      : "kcal",
+                    label: "Week net · after steps",
+                    value:
+                      netAfter != null
+                        ? `${netAfter > 0 ? "+" : netAfter === 0 ? "±" : "−"}${Math.abs(netAfter).toLocaleString("en-IN")}`
+                        : "—",
+                    sub:
+                      netAfter != null
+                        ? Math.abs(netAfter / 7700) >= 0.05
+                          ? `≈ ${netAfter > 0 ? "+" : "-"}${Math.abs(netAfter / 7700).toFixed(1)} kg · after −${selEarned.toLocaleString("en-IN")} earned`
+                          : `after −${selEarned.toLocaleString("en-IN")} earned`
+                        : "kcal",
                   },
                   {
                     label: "Within ±10%",
@@ -382,6 +412,7 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
 
               <p className="mt-3 rounded-2xl bg-[#E4F6EE]/70 px-4 py-3 text-[11.5px] font-semibold text-stone-700" role="status">
                 {calorieBudgetInsight(selWeek, calorieWeeks.budget, profile.goal)}
+                {earnedNetNote(selWeek.netKcal, selEarned) && ` ${earnedNetNote(selWeek.netKcal, selEarned)}`}
               </p>
             </div>
           )}
@@ -406,9 +437,15 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
         <section className="rounded-[26px] bg-white border border-stone-200/80 p-4" aria-label="weekly steps trend">
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-[14px] font-extrabold text-stone-900">👟 Steps &amp; movement</h2>
-            <span className="shrink-0 rounded-full bg-[#FBF3E2] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#A97715]">
-              estimated
-            </span>
+            {realDaysTotal > 0 ? (
+              <span className="shrink-0 rounded-full bg-[#E4F6EE] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#0E6B4E]">
+                real · health data
+              </span>
+            ) : (
+              <span className="shrink-0 rounded-full bg-[#FBF3E2] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#A97715]">
+                estimated
+              </span>
+            )}
           </div>
           <p className="text-[11.5px] text-stone-500 mt-0.5">
             Daily step trend — these earned calories are the light-green caps on your day bars.
@@ -467,9 +504,39 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
             ))}
           </div>
 
-          <p className="mt-2.5 rounded-2xl bg-stone-50 px-4 py-3 text-[11px] font-semibold text-stone-600">
-            Estimates from a typical routine until NourishIQ connects to Health Connect on Android. Earned kcal ≈ steps × 0.0004 × {profile.weightKg} kg — today&apos;s count still grows until midnight.
-          </p>
+          <div className="mt-2.5 rounded-2xl bg-stone-50 px-4 py-3 text-[11px] font-semibold text-stone-600">
+            <p>
+              {realDaysTotal > 0
+                ? `Using your real step counts for ${realDaysTotal} day${realDaysTotal === 1 ? "" : "s"} (Health Connect / Google Fit). Days without data fall back to routine estimates; in the Android shell the app reads Health Connect directly.`
+                : `Routine estimates for now — import your Health Connect / Google Fit steps (Takeout CSV) or connect the app on Android. Earned kcal ≈ steps × 0.0004 × ${profile.weightKg} kg; today's count still grows until midnight.`}
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => stepsFileRef.current?.click()}
+                className="rounded-xl bg-[#0B5C46] px-3.5 py-2 text-[12px] font-bold text-white active:scale-95 transition-transform"
+              >
+                ⬆ Import steps CSV
+              </button>
+              <span className="text-[10px] text-stone-400">.csv from Google Takeout / Health Connect export</span>
+            </div>
+            <input
+              ref={stepsFileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              aria-label="Import steps CSV"
+              onChange={(e) => {
+                importStepsFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            {impMsg && (
+              <p className={`mt-2 text-[11px] font-bold ${impMsg.ok ? "text-[#0E6B4E]" : "text-red-500"}`} role="status">
+                {impMsg.text}
+              </p>
+            )}
+          </div>
         </section>
       )}
 

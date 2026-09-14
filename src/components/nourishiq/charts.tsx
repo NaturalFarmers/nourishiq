@@ -326,7 +326,7 @@ export function DayKcalBars({
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Calories eaten each day of the selected week against the daily budget, with calories earned from steps stacked on top">
       <line x1="6" x2={W - 6} y1={yBudget} y2={yBudget} stroke="#0B5C46" strokeWidth="1.1" strokeDasharray="4 3" opacity="0.65" />
-      <text x="6" y={yBudget - 4} fontSize="7.5" fill="#0E6B4E" fontWeight="700">
+      <text x="6" y={yBudget - 4} fontSize="7.5" fill="#0E6B4E" fontWeight="700" stroke="#FFFFFF" strokeWidth="2.5" paintOrder="stroke" strokeLinejoin="round">
         budget {budget.toLocaleString()}
       </text>
       {days.map((d, i) => {
@@ -366,6 +366,7 @@ export function DayKcalBars({
                 fontWeight={isToday ? 800 : 700}
                 fill={EARNED_TEXT}
                 textAnchor="middle"
+                stroke="#FFFFFF" strokeWidth="2.5" paintOrder="stroke" strokeLinejoin="round"
               >
                 {`+${earned.toLocaleString()}`}
               </text>
@@ -384,6 +385,7 @@ export function DayKcalBars({
                   fontWeight={isToday ? 800 : 700}
                   fill={isToday ? "#292524" : "#57534E"}
                   textAnchor="middle"
+                  stroke="#FFFFFF" strokeWidth="2.5" paintOrder="stroke" strokeLinejoin="round"
                 >
                   {d.kcal.toLocaleString()}
                 </text>
@@ -450,6 +452,9 @@ export function StepsTrendChart({
   const avg = have.reduce((a, b) => a + b.steps, 0) / have.length;
   const peak = have.reduce((a, b) => (b.steps > a.steps ? b : a), have[0]);
   const last = have[have.length - 1];
+  const single = have.length === 1; // week just started — one real day
+
+  const labelDates = Array.from(new Set([peak, last].map((d) => d.date)));
 
   return (
     <figure aria-label="Steps walked each day of the selected week" className="w-full">
@@ -461,11 +466,15 @@ export function StepsTrendChart({
           </linearGradient>
         </defs>
 
-        {/* average guide */}
-        <line x1={padL} x2={padL + iw} y1={y(avg)} y2={y(avg)} stroke="#A8A29E" strokeWidth="1" strokeDasharray="4 3" opacity="0.75" />
-        <text x={padL + 2} y={y(avg) - 3.5} fontSize="7.5" fontWeight="700" fill="#78716C">
-          avg {fmtK(avg)}
-        </text>
+        {/* average guide (meaningless when the week has one day yet) */}
+        {!single && (
+          <g>
+            <line x1={padL} x2={padL + iw} y1={y(avg)} y2={y(avg)} stroke="#A8A29E" strokeWidth="1" strokeDasharray="4 3" opacity="0.75" />
+            <text x={padL + 2} y={y(avg) - 3.5} fontSize="7.5" fontWeight="700" fill="#78716C">
+              avg {fmtK(avg)}
+            </text>
+          </g>
+        )}
 
         {/* goal guide */}
         {goalSteps != null && (
@@ -497,30 +506,33 @@ export function StepsTrendChart({
           transition={{ duration: 0.8, ease: "easeOut" }}
         />
 
-        {/* dots (today emphasised) */}
+        {/* dots (today emphasised; hollow = routine estimate, solid = real data) */}
         {have.map((d) => (
           <circle
             key={d.date}
             cx={x(d.i)} cy={y(d.steps)}
             r={d.isToday ? 3.4 : 2.2}
-            fill="#0B5C46"
-            stroke={d.isToday ? "#FFFFFF" : "none"}
-            strokeWidth={d.isToday ? 1.4 : 0}
+            fill={d.isEstimated ? "#FFFFFF" : "#0B5C46"}
+            stroke="#0B5C46"
+            strokeWidth={d.isToday ? 1.4 : d.isEstimated ? 1 : 0}
           />
         ))}
 
-        {/* value labels: peak + latest (today) */}
-        {[peak, last].map((d, k) => {
+        {/* value labels: peak + latest (deduped when the same day) */}
+        {labelDates.map((dateSel) => {
+          const d = dateSel === peak.date ? peak : last;
           const ly = y(d.steps) - 6;
+          const anchor =
+            d.i <= 0 ? "start" : d.i >= days.length - 1 || d.i > days.length / 2 ? "end" : "middle";
           return (
             <text
-              key={d.date}
-              x={x(d.i)}
+              key={dateSel}
+              x={d.i <= 0 ? x(d.i) + 2 : x(d.i)}
               y={ly < 11 ? y(d.steps) + 11 : ly}
               fontSize="8"
               fontWeight="800"
               fill="#292524"
-              textAnchor={k === 0 && d.i < days.length / 2 ? "start" : d.i > days.length / 2 ? "end" : "middle"}
+              textAnchor={anchor}
             >
               {d.steps.toLocaleString()}
             </text>

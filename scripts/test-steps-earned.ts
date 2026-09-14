@@ -7,10 +7,13 @@ import {
   earnedKcalFromSteps,
   buildStepsWeeks,
   fetchNativeSteps,
+  parseStepsTakeoutCsv,
+  netAfterEarned,
+  earnedNetNote,
   KCAL_PER_STEP_PER_KG,
 } from "../src/lib/nourishiq/steps";
 import { computePrescription } from "../src/lib/nourishiq/engine";
-import { buildCalorieBudgetWeeks } from "../src/lib/nourishiq/progress";
+import { buildCalorieBudgetWeeks, weekStartOf } from "../src/lib/nourishiq/progress";
 import { dateKey } from "../src/lib/nourishiq/store";
 import type { UserProfile } from "../src/lib/nourishiq/types";
 
@@ -127,6 +130,55 @@ ok(Object.values(map).reduce((a, b) => a + b, 0) === weeks[4].earnedTotal, "map 
 console.log("10. native hook");
 const native = await fetchNativeSteps(today);
 ok(native === null, "fetchNativeSteps resolves null on the web build (estimates used)");
+
+// ── 11. Takeout / Health Connect CSV parser ────────────────────────────────
+console.log("11. steps CSV parser");
+const csv = [
+  "Start Time,End Time,Step count (count),Calories expended (kcal)",
+  '2026-09-07T08:30:00.000+05:30,2026-09-07T09:00:00.000+05:30,"4,200",105',
+  "2026-09-07 19:10:00,2026-09-07 19:40:00,1800,45",
+  "2026-09-08T07:00:00.000Z,2026-09-08T07:30:00.000Z,0,0",
+  "2026-09-09T06:00:00.000Z,2026-09-09T06:30:00.000Z,,",
+].join("\r\n");
+const parsed = parseStepsTakeoutCsv(csv);
+ok(parsed.days === 2, `2 distinct days parsed — empty-steps row is skipped (got ${parsed.days})`);
+ok(parsed.byDate["2026-09-07"] === 6000, `same-day session rows summed (4,200+1,800 = ${parsed.byDate["2026-09-07"]})`);
+ok(parsed.byDate["2026-09-08"] === 0, "zero-step day counts as data");
+ok(parsed.rows === 3 && parsed.skipped === 1, `rows=3 skipped=1 (empty steps row) (got ${parsed.rows}/${parsed.skipped})`);
+ok(parseStepsTakeoutCsv("name,age\nA,30").days === 0, "non-steps CSV → empty result");
+ok(parseStepsTakeoutCsv("").days === 0, "empty input → empty result");
+
+// ── 12. real data beats estimates ──────────────────────────────────────────
+console.log("12. real-data precedence");
+const d1 = dateKey(new Date(Date.now() - 1 * 864e5));
+const sameWeek = weekStartOf(d1) === weekStartOf(today);
+const withReal = buildStepsWeeks(5, 70, { [today]: 12345, [d1]: 999 });
+const tReal = withReal[4].days.find((d) => d.isToday)!;
+ok(tReal.steps === 12345, "today uses the imported value (12345)");
+ok(tReal.isEstimated === false, "today flagged NOT estimated");
+ok(tReal.earnedKcal === earnedKcalFromSteps(12345, 70), `today earned recomputed from real steps (${tReal.earnedKcal} kcal)`);
+const d1Day = withReal[4].days.find((d) => d.date === d1);
+ok(
+  !sameWeek || (d1Day != null && d1Day.steps === 999 && d1Day.isEstimated === false),
+  sameWeek ? "yesterday uses its real value" : "yesterday falls in last week — checked there instead",
+);
+if (!sameWeek) {
+  const lw = withReal[3].days.find((d) => d.date === d1)!;
+  ok(lw.steps === 999 && lw.isEstimated === false, "last-week day uses its real value (999)");
+}
+const estDay = withReal[2].days.find((d) => d.steps != null)!;
+ok(estDay.isEstimated === true && estDay.steps === estimateStepsForDate(estDay.date), "days without data keep estimates");
+ok(withReal[4].realDays === (sameWeek ? 2 : 1), `this week realDays = ${sameWeek ? 2 : 1} (got ${withReal[4].realDays})`);
+ok(withReal[4].totalSteps === withReal[4].days.reduce((a, b) => a + (b.steps ?? 0), 0), "totals still coherent with real data");
+
+// ── 13. earned offset on the weekly net ────────────────────────────────────
+console.log("13. earned offset on net");
+ok(netAfterEarned(211, 1096) === -885, "net 211 − earned 1,096 = −885");
+ok(netAfterEarned(null, 500) === null, "unlogged week → null net after earned");
+ok(earnedNetNote(211, 1096).includes("back within budget"), "over→under note says back within budget");
+ok(earnedNetNote(2000, 500).includes("+1,500"), "still-over note shows reduced net (+1,500)");
+ok(earnedNetNote(500, 500).includes("exactly on budget"), "exact-offset note");
+ok(earnedNetNote(-300, 500) === "" && earnedNetNote(200, 0) === "" && earnedNetNote(null, 500) === "", "no note when under budget / no earned / nothing logged");
 
 console.log(`\n${pass}/${pass + fail} PASS`);
 if (fail > 0) process.exit(1);

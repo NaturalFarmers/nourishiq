@@ -204,3 +204,22 @@ Stage Summary:
 - Earned calories from steps now live on the day bars themselves as light-green caps with +N labels — earned but unlogged days still show their cap.
 - Weekly steps trend card added with avg + 10k goal guides and weight-aware earned kcal; windows never disagree with the budget card.
 - Web shows honest deterministic estimates (badge + footnote); fetchNativeSteps() is the ready seam for real Health Connect data in the Capacitor shell.
+
+---
+Task ID: 19
+Agent: Super Z (main agent)
+Task: (a) earned kcal now actually offsets the weekly net math (net = eaten − earned − budget); (b) real Health Connect data wiring — native plugin path + Takeout/Health-Connect CSV import that replaces estimates.
+
+Work Log:
+- steps.ts: StepsDay.isEstimated + StepsWeek.realDays; buildStepsWeeks(weeks, weightKg, realSteps?, now?) — real values always beat estimates and recompute earned kcal; netAfterEarned() (eaten − earned − budget); earnedNetNote() plain-language offset sentence (only for over-budget weeks: over→within, over→over, exact); parseStepsTakeoutCsv() — Health Connect / Google Fit Takeout parser (Start Time + Step count columns, quoted numbers, ISO/space timestamps, same-day session rows summed, empty rows skipped, zero-step days kept); fetchNativeSteps() upgraded to call the registered Capacitor "Health" plugin (queryAggregated) when a native shell exists — no compile-time dependency.
+- store.ts: dailySteps map + setDailySteps() merge action (imported data never overwritten), cleared on reset; persisted with the passport.
+- ProgressView.tsx: "Week net" chip → "Week net · after steps" showing netAfterEarned with ≈kg and "after −N earned" sub; insight paragraph appends the earnedNetNote sentence; steps card badge flips ESTIMATED → REAL · HEALTH DATA when real days exist (solid vs hollow chart dots show provenance); "⬆ Import steps CSV" button + hidden input + success/error status line; footnote switches to real-data copy.
+- charts.tsx: DayKcalBars budget label, +N cap labels and kcal labels get white paint-order halos (fixes collision when today is Monday and the cap sits on the budget text); StepsTrendChart single-point weeks render one dot + one label (peak/last deduped, avg guide hidden when it equals the only point), value-label anchors edge-aware (start/middle/end).
+- Test-fixture robustness: sandbox clock rolled from Sun 2026-09-12 to Mon 2026-09-14 mid-task, breaking date-relative fixtures — buildCalorieBudgetWeeks gained an injectable `now` (default new Date(), no UI change); test-calorie-budget pinned to fixed Wed 2026-09-09 clock (28/28 PASS deterministic); test-steps-earned made week-position aware (realDays 1 vs 2 depending on whether yesterday is in-week).
+- Verification: steps tests 53/53 PASS (incl. CSV parser: quoted "4,200", CRLF, ISO+05:30 timestamps, session summing 4200+1800=6000, zero-step day kept, empty row skipped, non-CSV rejected; real-precedence 12345/999 with earned recompute 346 kcal; net math 211−1096=−885 and all note branches), calorie-budget 28/28, tsc src 0 errors, lint 0.
+- E2E (agent-browser, fresh Mon-2026-09-14 seed): pre-import ESTIMATED badge + net chip present; injected demo/health-connect-steps-sample.csv (8 days, quoted en-IN step counts) via DataTransfer on the hidden input → "Imported 8 rows — real steps for 8 days.", badge → REAL · HEALTH DATA, today = 4,200 steps, earned cap +118, Week-net chip −118 (= 2,110 eaten − 118 earned − 2,110 budget), all byte-equal to buildStepsWeeks(5,70,real); dailySteps persists across reload (8 days); fixed a React duplicate-key warning (StepsTrendChart peak/last labels sharing a date key) and a single-point-week label pileup found in screenshots; console clean after fixes; screenshots demo/27-net-after-steps.png, 28-real-steps-import.png (retaken), 29-progress-realdata-desktop.png.
+
+Stage Summary:
+- Earned kcal is now first-class in the weekly math: the Progress card shows net AFTER steps alongside the raw bars, with an honest sentence explaining the offset.
+- Real Health Connect data flows two ways today: CSV import (Takeout / Health Connect export — parsed, merged, persisted, provenance-visible) and the Capacitor plugin path fetchNativeSteps() for the Android shell.
+- Test suites are now clock-proof (injectable now) after a live week-rollover mid-verification.

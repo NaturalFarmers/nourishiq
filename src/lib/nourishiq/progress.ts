@@ -239,14 +239,14 @@ export function buildCalorieBudgetWeeks(
   logs: Record<string, DayLog>,
   rx: Prescription,
   weeks = 5,
+  now: Date = new Date(),
 ): CalorieBudgetSummary {
   const list: CalorieWeek[] = [];
-  const thisMonday = weekStartOf(dateKey());
+  const thisMonday = weekStartOf(dateKey(now));
   const [y0, m0, d0] = thisMonday.split("-").map(Number);
 
   for (let w = weeks - 1; w >= 0; w--) {
-    const startD = new Date();
-    startD.setFullYear(y0, m0 - 1, d0);
+    const startD = new Date(y0, m0 - 1, d0);
     startD.setDate(startD.getDate() - w * 7);
     const start = dateKey(startD);
 

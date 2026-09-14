@@ -51,6 +51,8 @@ interface NourishState {
   reminders: ReminderSettings;
   /** de-duplication keys for reminders already shown, e.g. "2026-09-09:breakfast" */
   firedKeys: string[];
+  /** real daily step counts from Health Connect / Google Fit (keyed YYYY-MM-DD); wins over estimates */
+  dailySteps: Record<string, number>;
   setPassport: (id: string) => void;
   setProfile: (p: Partial<UserProfile>) => void;
   setSeenWelcome: () => void;
@@ -64,6 +66,7 @@ interface NourishState {
   clearChat: () => void;
   setReminders: (patch: Partial<ReminderSettings>) => void;
   markFired: (key: string) => void;
+  setDailySteps: (map: Record<string, number>) => void;
   reset: () => void;
 }
 
@@ -87,6 +90,7 @@ export const useNourish = create<NourishState>()(
       chat: [],
       reminders: DEFAULT_REMINDERS,
       firedKeys: [],
+      dailySteps: {},
       setPassport: (id) => set({ passportId: id }),
       setProfile: (p) =>
         set((s) => ({ profile: { ...s.profile, ...p }, seenWelcome: true })),
@@ -132,6 +136,8 @@ export const useNourish = create<NourishState>()(
         set((s) =>
           s.firedKeys.includes(key) ? s : { firedKeys: [...s.firedKeys, key].slice(-80) },
         ),
+      setDailySteps: (map) =>
+        set((s) => ({ dailySteps: { ...s.dailySteps, ...map } })),
       reset: () =>
         set({
           profile: DEFAULT_PROFILE,
@@ -141,6 +147,7 @@ export const useNourish = create<NourishState>()(
           chat: [],
           reminders: DEFAULT_REMINDERS,
           firedKeys: [],
+          dailySteps: {},
         }),
     }),
     {

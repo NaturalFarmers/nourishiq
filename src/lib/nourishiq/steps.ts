@@ -74,6 +74,8 @@ export interface StepsDay {
   isFuture: boolean;
   /** today only — the count still grows through the day */
   isPartial: boolean;
+  /** false when the count comes from real Health Connect / Fit data */
+  isEstimated: boolean;
 }
 
 export interface StepsWeek {
@@ -83,16 +85,23 @@ export interface StepsWeek {
   totalSteps: number;
   avgSteps: number | null;
   earnedTotal: number; // kcal earned across non-future days
+  /** days in this week backed by real imported data */
+  realDays: number;
 }
 
 /**
  * N Monday-based step weeks, oldest → newest, ending with the current week.
  * Week windows are byte-identical to buildCalorieBudgetWeeks() so earned-kcal
  * caps on the day bars always line up with the selected budget week.
+ *
+ * `realSteps` maps date → real step counts (Health Connect / Google Fit
+ * import or the native plugin). Real values always win over estimates and
+ * mark the day `isEstimated: false`.
  */
 export function buildStepsWeeks(
   weeks = 5,
   weightKg = 70,
+  realSteps?: Record<string, number>,
   now: Date = new Date(),
 ): StepsWeek[] {
   const thisMonday = weekStartOf(dateKey(now));
@@ -113,11 +122,14 @@ export function buildStepsWeeks(
       const dk = dateKey(dd);
       const isFuture = dk > today;
       const isToday = dk === today;
+      const real = realSteps?.[dk];
       const steps = isFuture
         ? null
-        : isToday
-          ? estimateStepsToday(now)
-          : estimateStepsForDate(dk);
+        : real != null
+          ? Math.max(0, Math.round(real))
+          : isToday
+            ? estimateStepsToday(now)
+            : estimateStepsForDate(dk);
       days.push({
         date: dk,
         steps,
@@ -125,6 +137,7 @@ export function buildStepsWeeks(
         isToday,
         isFuture,
         isPartial: isToday,
+        isEstimated: isFuture ? false : real == null,
       });
     }
 
@@ -132,25 +145,125 @@ export function buildStepsWeeks(
     const totalSteps = have.reduce((a, b) => a + b.steps, 0);
     const avgSteps = have.length ? Math.round(totalSteps / have.length) : null;
     const earnedTotal = have.reduce((a, b) => a + b.earnedKcal, 0);
+    const realDays = have.filter((d) => !d.isEstimated).length;
 
     const label =
       w === 0 ? "This week" : w === 1 ? "Last week" : `Wk ${start.slice(8)}/${start.slice(5, 7)}`;
 
-    list.push({ label, start, days, totalSteps, avgSteps, earnedTotal });
+    list.push({ label, start, days, totalSteps, avgSteps, earnedTotal, realDays });
   }
   return list;
 }
 
+// ─── Earned offset on the weekly net ────────────────────────────────────────
+
+/** Weekly net after movement: eaten − earned − budget (null when nothing logged). */
+export function netAfterEarned(
+  netRaw: number | null,
+  earnedTotal: number,
+): number | null {
+  if (netRaw == null) return null;
+  return netRaw - earnedTotal;
+}
+
 /**
- * Level-2 native hook: inside the Capacitor shell this will query Health
- * Connect for the real TYPE_STEPS daily aggregate and replace estimates.
- * Always resolves null on the web build — callers fall back to
- * estimateStepsForDate(). Intentionally dependency-free until the shell ships.
+ * Plain-language sentence on how earned kcal changes the weekly net — appended
+ * to the budget insight only when it changes the story (over-budget weeks).
  */
-export async function fetchNativeSteps(_dateStr: string): Promise<number | null> {
+export function earnedNetNote(netRaw: number | null, earnedTotal: number): string {
+  if (netRaw == null || earnedTotal <= 0 || netRaw <= 0) return "";
+  const net = netRaw - earnedTotal;
+  const raw = netRaw.toLocaleString("en-IN");
+  if (net > 0)
+    return `Counting the +${earnedTotal.toLocaleString("en-IN")} kcal earned from steps, your true net is +${net.toLocaleString("en-IN")} kcal instead of +${raw}.`;
+  if (net === 0)
+    return `Steps earn back ${earnedTotal.toLocaleString("en-IN")} kcal — counting movement you land exactly on budget.`;
+  return `Steps earn back ${earnedTotal.toLocaleString("en-IN")} kcal — counting movement you're back within budget (net ${net.toLocaleString("en-IN")} kcal).`;
+}
+
+// ─── Real data: Health Connect / Google Fit Takeout CSV ─────────────────
+
+export interface ParsedStepsCsv {
+  byDate: Record<string, number>; // YYYY-MM-DD → total steps that day
+  rows: number; // data rows with a usable step count
+  days: number; // distinct days
+  skipped: number; // rows without a parseable step count
+}
+
+/** CSV line splitter that respects double-quoted fields ("a,b", """x"""). */
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ",") { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+/**
+ * Parse a Google Fit / Health Connect Takeout steps CSV into daily totals.
+ * Accepts the standard "Daily Aggregations" shape — header row containing a
+ * Start Time and a Step count column, e.g.
+ *   Start Time,End Time,Step count (count),Calories expended (kcal),…
+ * Timestamps may be "2026-09-07T08:30:00.000+05:30" or "2026-09-07 08:30:00";
+ * multiple rows per day are summed (sessions). Zero-step rows count as data.
+ */
+export function parseStepsTakeoutCsv(csv: string): ParsedStepsCsv {
+  const empty: ParsedStepsCsv = { byDate: {}, rows: 0, days: 0, skipped: 0 };
+  if (!csv || typeof csv !== "string") return empty;
+  const lines = csv.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return empty;
+
+  const header = splitCsvLine(lines[0]).map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+  const startIdx = header.findIndex((h) => h.startsWith("start time") || h === "start" || h === "date");
+  const stepIdx = header.findIndex((h) => h.includes("step count") || h === "steps" || h === "step count (count)");
+  if (startIdx < 0 || stepIdx < 0) return empty;
+
+  const byDate: Record<string, number> = {};
+  let rows = 0;
+  let skipped = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i]);
+    const start = (cells[startIdx] ?? "").trim().replace(/^"|"$/g, "");
+    const m = start.match(/^(\d{4}-\d{2}-\d{2})/);
+    const steps = Number.parseFloat((cells[stepIdx] ?? "").replace(/[^0-9.\-]/g, ""));
+    if (!m || !Number.isFinite(steps) || steps < 0) { skipped++; continue; }
+    byDate[m[1]] = (byDate[m[1]] ?? 0) + steps;
+    rows++;
+  }
+  return { byDate, rows, days: Object.keys(byDate).length, skipped };
+}
+
+/**
+ * Level-2 native hook: inside the Capacitor shell this queries Health Connect
+ * through the plugin registry (no compile-time dependency — the shell registers
+ * the "Health" plugin) and replaces both estimates and imports. Always resolves
+ * null on the web build.
+ */
+export async function fetchNativeSteps(dateStr: string): Promise<number | null> {
   if (typeof window === "undefined") return null;
-  const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, { queryAggregated?: (args: unknown) => Promise<{ value?: number }> }> } }).Capacitor;
   if (!cap?.isNativePlatform?.()) return null;
-  // TODO(Level-2): HealthConnect aggregate query for the given date.
-  return null;
+  try {
+    const health = cap.Plugins?.Health;
+    if (!health?.queryAggregated) return null;
+    const res = await health.queryAggregated({
+      dataType: "steps",
+      startDate: `${dateStr}T00:00:00.000`,
+      endDate: `${dateStr}T23:59:59.999`,
+    });
+    return typeof res?.value === "number" && res.value >= 0 ? Math.round(res.value) : null;
+  } catch {
+    return null;
+  }
 }

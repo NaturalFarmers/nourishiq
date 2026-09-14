@@ -1,5 +1,8 @@
 // Task 10 — validation for weekly "calories vs budget" analytics.
 // Run: bun scripts/test-calorie-budget.ts
+// Deterministic: pins "now" to Wed 2026-09-09 so fixtures always land in the
+// same Mon–Sun buckets regardless of the real clock (buildCalorieBudgetWeeks
+// accepts an injectable now for exactly this reason).
 
 // store.ts uses zustand persist → shim localStorage before any import runs.
 (globalThis as unknown as { localStorage: unknown }).localStorage = {
@@ -43,22 +46,25 @@ function day(date: string, kcal: number): [string, DayLog] {
 }
 
 function daysAgoKcal(n: number, kcal: number): [string, DayLog] {
-  const d = new Date();
+  const d = new Date(NOW);
   d.setDate(d.getDate() - n);
   return day(dateKey(d), kcal);
 }
 
+/** Fixed clock: Wednesday → daysAgo 0/1/2 always sit in the current week. */
+const NOW = new Date(2026, 8, 9);
+
 const logs = Object.fromEntries([
-  daysAgoKcal(0, 2000),  // today — exactly 100% of budget (within)
-  daysAgoKcal(1, 2400),  // over (>110%)
-  daysAgoKcal(2, 1800),  // exactly at the 90% boundary → within
+  daysAgoKcal(0, 2000),  // Wed — exactly 100% of budget (within)
+  daysAgoKcal(1, 2400),  // Tue — over (>110%)
+  daysAgoKcal(2, 1800),  // Mon — exactly at the 90% boundary → within
   daysAgoKcal(8, 3000),  // last week — over
   daysAgoKcal(9, 1000),  // last week — under
   daysAgoKcal(15, 1500), // week −2 — under
   daysAgoKcal(22, 2050), // week −3 — slightly over but within band
 ]);
 
-const summary = buildCalorieBudgetWeeks(logs, RX, 5);
+const summary = buildCalorieBudgetWeeks(logs, RX, 5, NOW);
 
 console.log("\n── structure ──");
 ok(summary.budget === 2000, "budget pulled from rx.kcal (2000)");
@@ -67,8 +73,8 @@ ok(summary.weeks[4].label === "This week", `last bucket labelled "This week"`);
 ok(summary.weeks[3].label === "Last week", `second-last bucket labelled "Last week"`);
 ok(summary.weeks[2].label.startsWith("Wk "), `older bucket labelled "${summary.weeks[2].label}"`);
 ok(summary.weeks.every((w) => w.days.length === 7), "every bucket has 7 days Mon..Sun");
-ok(summary.weeks[4].days.some((d) => d.date === dateKey()), "current week bucket contains today");
-ok(weekStartOf(dateKey()) === summary.weeks[4].start, "current week starts Monday");
+ok(summary.weeks[4].days.some((d) => d.date === dateKey(NOW)), "current week bucket contains today");
+ok(weekStartOf(dateKey(NOW)) === summary.weeks[4].start, "current week starts Monday");
 
 console.log("\n── this week math ──");
 const tw = summary.weeks[4];
