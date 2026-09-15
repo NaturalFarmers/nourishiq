@@ -223,3 +223,21 @@ Stage Summary:
 - Earned kcal is now first-class in the weekly math: the Progress card shows net AFTER steps alongside the raw bars, with an honest sentence explaining the offset.
 - Real Health Connect data flows two ways today: CSV import (Takeout / Health Connect export — parsed, merged, persisted, provenance-visible) and the Capacitor plugin path fetchNativeSteps() for the Android shell.
 - Test suites are now clock-proof (injectable now) after a live week-rollover mid-verification.
+
+---
+Task ID: 22
+Agent: Super Z (main agent)
+Task: User asked how to get all the code onto GitHub. Along the way: discovered the sandbox had silently rolled back to an end-of-Task-19 snapshot (nativeHealth.ts, PWA files, worklog 20/21 missing from disk) — restored both tasks byte-identically from session context, re-verified, then made the repo GitHub-ready.
+
+Work Log:
+- Rollback discovered while checking git state: src/app/manifest.ts, public/sw.js, public/icons/, PwaRegister, InstallPrompt, nativeHealth.ts, test-native-health.ts absent; worklog ended at Task 19; /manifest.webmanifest 404. Confirmed via ls/grep inventory (steps.ts still had pre-Task-20 fetchNativeSteps; ProgressView had CSV import but no native sync).
+- Restored Task 20 from context: rewrote nativeHealth.ts + scripts/test-native-health.ts verbatim; re-applied steps.ts (import + delegation + header) and ProgressView.tsx (react imports, nativeHealth import, hc state/effect/callback, footnote, status chip) patches.
+- Restored Task 21 from context: rewrote manifest.ts, sw.js (v2 semantics), PwaRegister.tsx, InstallPrompt.tsx, scripts/make-pwa-icons.mjs; regenerated 5 icon PNGs via sharp; re-applied layout.tsx metadata/viewport/PwaRegister and page.tsx InstallPrompt mount.
+- Re-verification: native-health 41/41, steps 52/52, calorie-budget 28/28; tsc src clean; eslint clean on all 8 touched files; manifest/sw/icon-192 all 200; browser smoke — link[rel=manifest] + apple metas present, SW registered+active, synthetic beforeinstallprompt renders install card, 0 console errors.
+- Git hygiene for publishing: git rm --cached .env (machine-local DATABASE_URL only — file kept locally, .env* rule now effective); .gitignore += tool-results/, /db/, *.db, *.log; untracked runtime db/custom.db + tool-results/ from index; repo-local identity set (NourishIQ <dev@nourishiq.app>); single commit f51d980 with all restored work + hygiene note on top of the existing auto-snapshot history (main).
+- Packages in /home/z/my-project/download/: nourishiq-repo.bundle (4.0M, full verified history — git bundle verify: complete) and nourishiq-source.zip (4.0M, 187 tracked files via git archive). GitHub reachability confirmed (HTTPS 200), so a direct push with a user-supplied fine-grained PAT is also possible.
+
+Stage Summary:
+- Tasks 20+21 live again on disk AND captured in a proper commit; app re-verified end-to-end.
+- Repo is publish-ready: no .env, no runtime db, no sandbox artifacts tracked; 187 files, clean history on main.
+- User has two GitHub paths: (A) download nourishiq-repo.bundle → clone → push themselves; (B) provide repo URL + fine-grained PAT (Contents: RW, short expiry) and I push directly.
