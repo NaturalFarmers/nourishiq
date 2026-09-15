@@ -57,3 +57,4 @@ tool-results/
 /db/
 *.db
 *.log
+download/
