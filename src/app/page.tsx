@@ -17,6 +17,7 @@ import RemindersSheet from "@/components/nourishiq/RemindersSheet";
 import { useReminders, type FiredReminder } from "@/components/nourishiq/useReminders";
 import { useHydrated } from "@/components/nourishiq/primitives";
 import { useNourish } from "@/lib/nourishiq/store";
+import InstallPrompt from "@/components/nourishiq/InstallPrompt";
 
 const NAV: { id: ViewId; label: string; emoji: string }[] = [
   { id: "home", label: "Home", emoji: "🏠" },
@@ -158,6 +159,7 @@ export default function Page() {
                 transition={{ duration: 0.18 }}
               >
                 {view === "home" && <HomeView go={go} />}
+                {view === "home" && hydrated && <InstallPrompt />}
                 {view === "assessment" && <AssessmentView go={go} />}
                 {view === "plan" && <PlanView go={go} />}
                 {view === "foods" && <FoodsView />}

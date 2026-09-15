@@ -8,12 +8,14 @@
 //  - Monday-based week builders that share the exact week windows of
 //    buildCalorieBudgetWeeks() so the two cards never disagree.
 //
-// Level-2 native hook: fetchNativeSteps() below is where real Health Connect
-// step counts will be fetched once the app ships inside the Capacitor shell.
-// On the web build it always resolves null and callers fall back to estimates.
+// Native wiring: fetchNativeSteps() below now talks to real Health Connect /
+// HealthKit through nativeHealth.ts when the app runs inside the Capacitor
+// shell (permission + aggregated queries). On the web build it always resolves
+// null and callers fall back to estimates or the Takeout CSV import.
 
 import { dateKey } from "./store";
 import { weekStartOf } from "./progress";
+import { fetchNativeStepsFor, getHealthPlugin } from "./nativeHealth";
 
 /** kcal per step per kg of body weight — ≈0.028 kcal/step at 70 kg (≈280 kcal per 10k steps). */
 export const KCAL_PER_STEP_PER_KG = 0.0004;
@@ -245,25 +247,16 @@ export function parseStepsTakeoutCsv(csv: string): ParsedStepsCsv {
 }
 
 /**
- * Level-2 native hook: inside the Capacitor shell this queries Health Connect
- * through the plugin registry (no compile-time dependency — the shell registers
- * the "Health" plugin) and replaces both estimates and imports. Always resolves
- * null on the web build.
+ * Real Health Connect / HealthKit step count for one day, via the runtime
+ * plugin registry inside the Capacitor shell (see nativeHealth.ts). Always
+ * resolves null on the web build — callers fall back to estimates.
  */
 export async function fetchNativeSteps(dateStr: string): Promise<number | null> {
-  if (typeof window === "undefined") return null;
-  const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: Record<string, { queryAggregated?: (args: unknown) => Promise<{ value?: number }> }> } }).Capacitor;
-  if (!cap?.isNativePlatform?.()) return null;
+  const p = getHealthPlugin();
+  if (!p) return null;
   try {
-    const health = cap.Plugins?.Health;
-    if (!health?.queryAggregated) return null;
-    const res = await health.queryAggregated({
-      dataType: "steps",
-      startDate: `${dateStr}T00:00:00.000`,
-      endDate: `${dateStr}T23:59:59.999`,
-    });
-    return typeof res?.value === "number" && res.value >= 0 ? Math.round(res.value) : null;
+    return await fetchNativeStepsFor(dateStr, p);
   } catch {
-    return null;
+    return null; // bridge errors degrade to "no data" for callers
   }
 }

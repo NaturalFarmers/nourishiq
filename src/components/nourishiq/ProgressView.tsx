@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useNourish, dateKey } from "@/lib/nourishiq/store";
 import { computePrescription } from "@/lib/nourishiq/engine";
@@ -18,6 +18,7 @@ import type { ViewId } from "./HomeView";
 import { useHydrated, Skeleton } from "./primitives";
 import { TrendChart, WeekBars, DayDots, BudgetWeekBars, DayKcalBars, StepsTrendChart } from "./charts";
 import { buildStepsWeeks, parseStepsTakeoutCsv, netAfterEarned, earnedNetNote } from "@/lib/nourishiq/steps";
+import { hasNativeHealth, syncRecentSteps, type NativeSyncResult } from "@/lib/nourishiq/nativeHealth";
 
 const CRITERIA = [
   { key: "kcal", label: "Calories", note: "within ±10% of target" },
@@ -44,6 +45,23 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
   const [sWkIdx, setSWkIdx] = useState(4);
   const stepsFileRef = useRef<HTMLInputElement>(null);
   const [impMsg, setImpMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  /** Health Connect auto-sync — native shell only; the web build never sets this. */
+  const [hc, setHc] = useState<NativeSyncResult | null>(null);
+  const hcTried = useRef(false);
+  const syncHealthConnect = useCallback(async () => {
+    const res = await syncRecentSteps();
+    setHc(res);
+    if (Object.keys(res.byDate).length > 0) setDailySteps(res.byDate);
+  }, [setDailySteps]);
+  useEffect(() => {
+    if (!hydrated || hcTried.current || !hasNativeHealth()) return;
+    hcTried.current = true;
+    // deferred tick: the bridge round-trip is async — status lands after awaits,
+    // never synchronously inside this effect body
+    const t = setTimeout(() => void syncHealthConnect(), 0);
+    return () => clearTimeout(t);
+  }, [hydrated, syncHealthConnect]);
 
   const rx = hydrated ? computePrescription(profile) : null;
 
@@ -507,7 +525,7 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
           <div className="mt-2.5 rounded-2xl bg-stone-50 px-4 py-3 text-[11px] font-semibold text-stone-600">
             <p>
               {realDaysTotal > 0
-                ? `Using your real step counts for ${realDaysTotal} day${realDaysTotal === 1 ? "" : "s"} (Health Connect / Google Fit). Days without data fall back to routine estimates; in the Android shell the app reads Health Connect directly.`
+                ? `Using your real step counts for ${realDaysTotal} day${realDaysTotal === 1 ? "" : "s"} (Health Connect / Google Fit). Days without data fall back to routine estimates; in the Android shell the app syncs Health Connect automatically.`
                 : `Routine estimates for now — import your Health Connect / Google Fit steps (Takeout CSV) or connect the app on Android. Earned kcal ≈ steps × 0.0004 × ${profile.weightKg} kg; today's count still grows until midnight.`}
             </p>
             <div className="mt-2 flex items-center gap-2">
@@ -535,6 +553,22 @@ export default function ProgressView({ go }: { go: (v: ViewId) => void }) {
               <p className={`mt-2 text-[11px] font-bold ${impMsg.ok ? "text-[#0E6B4E]" : "text-red-500"}`} role="status">
                 {impMsg.text}
               </p>
+            )}
+            {hc && (
+              <div className="mt-2 flex flex-wrap items-center gap-2" role="status" aria-label="Health Connect sync status">
+                <span className={`text-[11px] font-bold ${hc.status === "ok" ? "text-[#0E6B4E]" : "text-amber-700"}`}>
+                  {hc.status === "ok" ? "⚡" : "⚠"} {hc.message}
+                </span>
+                {hc.status !== "ok" && (
+                  <button
+                    type="button"
+                    onClick={() => void syncHealthConnect()}
+                    className="rounded-lg border border-stone-300 px-2.5 py-1 text-[10.5px] font-bold text-stone-600 active:scale-95 transition-transform"
+                  >
+                    Sync again
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </section>

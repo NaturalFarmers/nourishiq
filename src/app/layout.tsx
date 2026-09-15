@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import PwaRegister from "@/components/nourishiq/PwaRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,14 +19,26 @@ export const metadata: Metadata = {
   description:
     "Prescription-first nutrition: take a 2-minute intake and get personalised calories, macros, fibre & water targets, plus fit-scores for 90+ foods, goal-aligned recipes, energy-burn tools and evidence-based guidelines.",
   keywords: ["nutrition", "diet", "protein", "gluten-free", "low GI", "visceral fat", "meal plan", "health"],
+  applicationName: "NourishIQ",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "NourishIQ",
+    statusBarStyle: "black-translucent",
+  },
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
   },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#FAF9F6",
 };
 
@@ -41,6 +54,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <PwaRegister />
       </body>
     </html>
   );
