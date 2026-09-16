@@ -145,6 +145,7 @@ export async function POST(req: NextRequest) {
     const zai = await ZAI.create();
     const recent = messages.slice(-12);
     const completion = await zai.chat.completions.create({
+      model: process.env.ZAI_CHAT_MODEL || "glm-4.5-flash",
       messages: [
         { role: "assistant", content: buildSystemPrompt(context) },
         ...recent.map((m) => ({ role: m.role, content: m.content })),
@@ -158,8 +159,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ reply });
   } catch (err) {
     console.error("[/api/chat] nutritionist request failed:", err);
+    const raw = err instanceof Error ? err.message : String(err);
+    let detail = raw.slice(0, 240);
+    if (raw.includes("Configuration file not found")) {
+      detail =
+        'Missing AI config. Create .z-ai-config in the project root: {"baseUrl":"https://api.z.ai/api/paas/v4","apiKey":"<your Z.ai API key>"}';
+    } else if (raw.includes("status 401") || raw.includes("status 403")) {
+      detail = "API key rejected — replace the apiKey placeholder in .z-ai-config with a real Z.ai key.";
+    } else if (raw.includes("status 404")) {
+      detail = "AI endpoint not found (404) — check baseUrl in .z-ai-config (expected: https://api.z.ai/api/paas/v4).";
+    } else if (raw.includes("fetch failed") || raw.includes("ENOTFOUND") || raw.includes("ECONNREFUSED")) {
+      detail = "Network error reaching the AI endpoint — check baseUrl spelling and your internet connection.";
+    }
     return NextResponse.json(
-      { error: "Your nutritionist is unreachable right now. Please try again in a moment." },
+      {
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Your nutritionist is unreachable right now. Please try again in a moment."
+            : `Nutritionist setup issue: ${detail}`,
+      },
       { status: 502 },
     );
   }

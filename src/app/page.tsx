@@ -18,6 +18,9 @@ import { useReminders, type FiredReminder } from "@/components/nourishiq/useRemi
 import { useHydrated } from "@/components/nourishiq/primitives";
 import { useNourish } from "@/lib/nourishiq/store";
 import InstallPrompt from "@/components/nourishiq/InstallPrompt";
+import AccountButton from "@/components/nourishiq/AccountButton";
+import { initSync } from "@/lib/supabase/sync";
+import { useAuth } from "@/lib/supabase/auth-store";
 
 const NAV: { id: ViewId; label: string; emoji: string }[] = [
   { id: "home", label: "Home", emoji: "🏠" },
@@ -57,6 +60,12 @@ export default function Page() {
   const onReminder = useCallback((r: FiredReminder) => setBanner(r), []);
   useReminders(onReminder);
 
+  // cloud sync bootstrap (no-op when Supabase env vars are absent)
+  useEffect(() => {
+    useAuth.getState().init();
+    initSync();
+  }, []);
+
   // auto-dismiss the banner after 10 s
   useEffect(() => {
     if (!banner) return;
@@ -76,6 +85,7 @@ export default function Page() {
             </span>
           </button>
           <div className="flex items-center gap-2">
+            {hydrated && <AccountButton />}
             {hydrated && (
               <button
                 onClick={() => setRemindersOpen(true)}
